@@ -1,4 +1,5 @@
 // Card Table client. Renders whatever the table server sends; the server is the only authority.
+import * as FX from "./fx.js";
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const RANK = { T: "10" };
@@ -32,6 +33,27 @@ function setRoom(name) {
 app.setRoom = setRoom;
 setRoom(new URLSearchParams(location.search).get("room") || (() => { try { return localStorage.getItem("room"); } catch { return null; } })() || "classic");
 setDeck(new URLSearchParams(location.search).get("deck") || (() => { try { return localStorage.getItem("deck"); } catch { return null; } })() || "ivory");
+
+// Chip set and win celebration (same pattern: ?chips=gold&celebration=goldrush, or the saved choice)
+const CHIP_SETS = Object.keys(FX.CHIP_STYLES);
+const saved = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+function setChips(name) {
+  if (!CHIP_SETS.includes(name)) name = "casino";
+  document.documentElement.dataset.chips = name;
+  FX.setChipStyle(name);
+  app.chips = name;
+  try { localStorage.setItem("chips", name); } catch {}
+}
+function setCelebration(name) {
+  if (!FX.CELEBRATIONS.includes(name)) name = "glow";
+  app.celebration = name;
+  try { localStorage.setItem("celebration", name); } catch {}
+}
+app.setChips = setChips;
+app.setCelebration = setCelebration;
+app.FX = FX;
+setChips(new URLSearchParams(location.search).get("chips") || saved("chips") || "casino");
+setCelebration(new URLSearchParams(location.search).get("celebration") || saved("celebration") || "glow");
 
 // ---------------------------------------------------------------- screens
 function show(screen) {
@@ -127,7 +149,7 @@ async function verifyHand(hand) {
   // every card shown on the board must be one of the revealed (committed) cards
   const revealed = new Set(hand.reveal.filter((r) => r.card).map((r) => r.card));
   app.verified[hand.no] = ok && hand.board.every((c) => revealed.has(c));
-  render();
+  if (app.state?.hand?.no === hand.no) renderFair(app.state.hand);
 }
 
 // ---------------------------------------------------------------- rendering
@@ -172,9 +194,109 @@ function cardEl(code, { small = false, win = false } = {}) {
 app.cardEl = cardEl;
 
 function onState(s) {
+  const old = app.state;
   app.state = s;
   if (s.hand?.reveal) verifyHand(s.hand);
+  const before = capture();
   render();
+  animateDiff(old, s, before);
+}
+
+/** Positions of things that may animate away, taken before the table is rebuilt. */
+function capture() {
+  const snap = { holes: {}, bets: {}, dealer: null };
+  document.querySelectorAll(".seat[data-abs]").forEach((el) => {
+    const i = +el.dataset.abs;
+    snap.holes[i] = [...el.querySelectorAll(".hole .card")].map((c) => c.getBoundingClientRect());
+    const b = el.querySelector(".bet");
+    if (b) snap.bets[i] = b.getBoundingClientRect();
+  });
+  const d = document.querySelector(".dealer");
+  if (d) snap.dealer = d.getBoundingClientRect();
+  return snap;
+}
+
+function hideUntil(el, promise) {
+  if (!el) return;
+  el.style.visibility = "hidden";
+  promise.then(() => (el.style.visibility = ""));
+}
+
+function animateDiff(old, s, before) {
+  const oh = old?.hand;
+  const nh = s.hand;
+  if (!nh) return;
+  const seatEl = (i) => document.querySelector(`.seat[data-abs="${i}"]`);
+  const plateRect = (i) => seatEl(i)?.querySelector(".plate")?.getBoundingClientRect();
+  // Chips going to/from the pot use the pile's slot above the label, never the label itself
+  const pileRect = $("pot-pile").getBoundingClientRect();
+  const potRect = new DOMRect(pileRect.left + pileRect.width / 2 - 16, pileRect.bottom - 34, 32, 32);
+  const boardRect = $("board").getBoundingClientRect();
+  const back = () => cardEl("??");
+  const newHand = !oh || oh.no !== nh.no;
+
+  if (before.dealer) FX.glideFrom(document.querySelector(".dealer"), before.dealer);
+
+  if (newHand) {
+    // Deal two rounds, clockwise from the left of the button
+    const n = s.seats.length;
+    const order = [];
+    for (let k = 1; k <= n; k++) {
+      const i = (nh.button + k) % n;
+      if (s.seats[i]?.inHand) order.push(i);
+    }
+    const targets = [];
+    for (let round = 0; round < 2; round++)
+      for (const i of order) {
+        const c = seatEl(i)?.querySelectorAll(".hole .card")[round];
+        if (c) targets.push({ el: c });
+      }
+    FX.deal(targets, boardRect, back);
+    // Blinds slide out after the deal
+    s.seats.forEach((st, i) => {
+      if (!st?.bet) return;
+      const betEl = seatEl(i).querySelector(".bet");
+      hideUntil(betEl, FX.flyChips(st.bet, plateRect(i), betEl.getBoundingClientRect(), { delay: targets.length * 85 + 250 }));
+    });
+    return;
+  }
+
+  // New board cards flip over (after any bets are swept in)
+  const swept = s.seats.some((st, i) => st && old.seats[i]?.bet > 0 && st.bet === 0);
+  nh.board.forEach((c, idx) => {
+    if (idx >= oh.board.length) FX.flipIn($("board").children[idx], back, (swept ? 450 : 0) + (idx - oh.board.length) * 160);
+  });
+
+  s.seats.forEach((st, i) => {
+    const os = old.seats[i];
+    if (!st || !os) return;
+    if (!os.folded && st.folded && before.holes[i]?.length) FX.muck(before.holes[i], boardRect, back);
+    const els = seatEl(i)?.querySelectorAll(".hole .card") ?? [];
+    st.hole.forEach((c, k) => {
+      if (c !== "??" && os.hole[k] === "??" && els[k]) FX.flipIn(els[k], back, 300 + k * 140);
+    });
+    if (st.bet > os.bet) {
+      const betEl = seatEl(i).querySelector(".bet");
+      if (betEl) hideUntil(betEl, FX.flyChips(st.bet - os.bet, plateRect(i), betEl.getBoundingClientRect()));
+    } else if (os.bet > 0 && st.bet === 0 && before.bets[i]) {
+      FX.flyChips(os.bet, before.bets[i], potRect);
+    }
+  });
+
+  if (oh.pot !== nh.pot) FX.tick($("pot"), oh.pot, nh.pot);
+
+  // Hand over: pot slides to the winner(s), then the celebration
+  if (!oh.result && nh.result) {
+    const delay = nh.result.endedBy === "showdown" ? 900 : 300;
+    const you = s.you.seat;
+    nh.result.payouts.forEach((amt, i) => {
+      if (amt <= 0) return;
+      setTimeout(() => FX.flyChips(amt, potRect, plateRect(i), { size: 32 }), delay);
+      const plate = () => seatEl(i)?.querySelector(".plate");
+      const style = i === you ? app.celebration : "glow";
+      setTimeout(() => plate() && FX.celebrate(style, plate(), amt, { chipColors: FX.chipColors() }), delay + 500);
+    });
+  }
 }
 
 function render() {
@@ -186,8 +308,10 @@ function render() {
   const rel = (i) => (you >= 0 ? (i - you + nSeats) % nSeats : i);
   const winners = new Set(h?.result ? h.result.pots.flatMap((p) => p.winners) : []);
 
-  // board and pot
+  // board and pot (the pile shows chips already collected, not the bets still in front of players)
   $("pot").textContent = (h?.pot ?? 0).toLocaleString();
+  const collected = h && !h.result ? h.pot - s.seats.reduce((a, st) => a + (st?.bet ?? 0), 0) : 0;
+  $("pot-pile").replaceChildren(...(collected > 0 ? FX.chipPile(collected, 30).children : []));
   const board = $("board");
   board.replaceChildren(...[0, 1, 2, 3, 4].map((i) => cardEl(h?.board[i])));
   $("street").textContent = h ? (h.result ? (h.result.endedBy === "showdown" ? "Showdown" : "Hand over") : h.street) : "Waiting for players";
@@ -196,12 +320,13 @@ function render() {
   s.seats.forEach((seat, i) => {
     const el = $(`seat-${rel(i)}`);
     el.className = `seat pos-${rel(i)}`;
+    el.dataset.abs = i;
     if (!seat) {
       el.classList.add("empty");
       el.innerHTML = `<div class="hole"></div><div class="plate"><div class="name">Empty seat</div></div>`;
       return;
     }
-    if (h && h.toAct === i && !h.result) el.classList.add("turn");
+    if (h && h.toAct === i && !h.result) el.classList.add("turn", ...(seat.isBot || !h.deadline ? ["bot-turn"] : []));
     if (seat.folded) el.classList.add("folded");
     if (winners.has(i)) el.classList.add("winner");
 
@@ -229,7 +354,7 @@ function render() {
     if (seat.bet > 0) {
       const bet = document.createElement("div");
       bet.className = "bet";
-      bet.innerHTML = `<span class="chip"></span>${seat.bet.toLocaleString()}`;
+      bet.append(FX.chipStack(seat.bet, 28), Object.assign(document.createElement("span"), { textContent: seat.bet.toLocaleString() }));
       el.append(bet);
     }
   });
@@ -308,11 +433,11 @@ $("btn-raise").onclick = () => {
 $("raise-slider").oninput = (e) => {
   app.raiseTouched = true;
   $("raise-amount").value = e.target.value;
-  render();
+  renderActions(app.state);
 };
 $("raise-amount").oninput = () => {
   app.raiseTouched = true;
-  render();
+  renderActions(app.state);
 };
 document.querySelectorAll("[data-preset]").forEach((b) => {
   b.onclick = () => {
@@ -325,18 +450,42 @@ document.querySelectorAll("[data-preset]").forEach((b) => {
     app.raiseTouched = true;
     $("raise-amount").value = v;
     $("raise-slider").value = v;
-    render();
+    renderActions(app.state);
   };
 });
-setInterval(() => app.state?.hand?.deadline && renderActions(app.state), 250);
+setInterval(() => {
+  const s = app.state;
+  if (!s?.hand?.deadline) return;
+  renderActions(s);
+  const ring = document.querySelector(".seat.turn .plate");
+  if (ring) ring.style.setProperty("--t", Math.max(0, (s.hand.deadline - Date.now()) / (s.turnSeconds * 1000)).toFixed(3));
+}, 200);
 
 // ---------------------------------------------------------------- start
 async function start() {
   if (app.demo) {
-    const { demoState } = await import("./demo.js");
+    const demo = await import("./demo.js");
     show("table");
     $("wallet-balance").textContent = "500";
-    onState(await demoState(app.demo));
+    if (app.demo === "play") {
+      // A scripted hand, played with the real renderer and animations
+      let t = 0;
+      for (const step of await demo.demoSequence()) {
+        t += step.wait;
+        setTimeout(() => onState(step.state), t);
+      }
+      app.demoLength = t;
+    } else if (app.demo === "celebrate") {
+      // Plays every win celebration in turn on the showdown screen
+      onState(await demo.demoState("showdown"));
+      const names = { glow: "1 · Glow (free)", chipshower: "2 · Chip Shower", confetti: "3 · Confetti", spotlight: "4 · Spotlight", fireworks: "5 · Fireworks", goldrush: "6 · Gold Rush (flagship)" };
+      const label = Object.assign(document.createElement("div"), { style: "position:fixed;top:78px;left:24px;z-index:70;font:800 22px Inter;color:#fff;background:rgba(0,0,0,.6);padding:8px 16px;border-radius:12px" });
+      document.body.append(label);
+      const plate = () => document.querySelector('.seat[data-abs="0"] .plate');
+      for (const [i, name] of FX.CELEBRATIONS.entries()) {
+        setTimeout(() => { label.textContent = names[name]; FX.celebrate(name, plate(), 390, { chipColors: FX.chipColors() }); }, 600 + i * 4200);
+      }
+    } else onState(await demo.demoState(app.demo));
     return;
   }
   if (app.token) {

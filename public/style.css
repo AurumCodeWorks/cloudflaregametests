@@ -98,7 +98,6 @@ input { font: inherit; color: var(--text); background: var(--panel-2); border: 1
   font-family: "Roboto Slab", Rockwell, Georgia, serif;
   font-variant-numeric: lining-nums;
   overflow: hidden;
-  animation: deal .3s cubic-bezier(.2, .8, .2, 1);
 }
 .card.face::after {
   content: ""; position: absolute; inset: calc(var(--w) * .055);
@@ -169,7 +168,7 @@ input { font: inherit; color: var(--text); background: var(--panel-2); border: 1
 .board .card { --w: 72px; }
 .card.win { box-shadow: 0 0 0 2px #e9c46a, 0 0 18px rgba(233, 196, 106, .65), 0 10px 22px rgba(0,0,0,.38); }
 .card.placeholder {
-  background: rgba(255, 255, 255, .03); box-shadow: none; animation: none;
+  background: rgba(255, 255, 255, .03); box-shadow: none;
   border: 1px dashed rgba(217, 182, 94, .28);
 }
 @keyframes deal { from { transform: translateY(-10px) rotate(-2deg); opacity: 0; } to { transform: none; opacity: 1; } }
