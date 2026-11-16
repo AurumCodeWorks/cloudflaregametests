@@ -106,7 +106,7 @@ export function createShop({ api, toast, cardEl, FX, onEquip }) {
       b.onclick = () => equip(item);
       foot.append(b);
     } else {
-      const b = Object.assign(document.createElement("button"), { className: "btn btn-gold", textContent: `Buy ${money(item.pricePence)}` });
+      const b = Object.assign(document.createElement("button"), { className: "btn btn-gold", textContent: state.unlimited ? "Unlock free" : `Buy ${money(item.pricePence)}` });
       b.dataset.action = "buy";
       b.onclick = () => buy(item, b);
       foot.append(b);
@@ -118,6 +118,9 @@ export function createShop({ api, toast, cardEl, FX, onEquip }) {
   function render() {
     if (!state) return;
     $("test-banner").hidden = state.mode !== "test";
+    $("test-banner").textContent = state.unlimited
+      ? "Demo: every item unlocks free, and chips are unlimited. No payment is ever taken."
+      : "Test mode: purchases are simulated and free. No payment is taken.";
     document.querySelectorAll(".shop-tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
     $("shop-note").textContent = NOTES[tab];
     const items = state.catalog.filter((i) => i.type === tab).sort((a, b) => a.tier - b.tier || a.pricePence - b.pricePence);
@@ -128,7 +131,7 @@ export function createShop({ api, toast, cardEl, FX, onEquip }) {
     btn.disabled = true;
     try {
       state = await api("/api/shop/buy", { method: "POST", body: JSON.stringify({ itemId: item.id }) });
-      toast(`${item.name} unlocked${state.mode === "test" ? " (test purchase, no payment taken)" : ""}`);
+      toast(`${item.name} unlocked${state.unlimited ? "" : state.mode === "test" ? " (test purchase, no payment taken)" : ""}`);
       if (item.type !== "bundle") await equip(item, true);
       else render();
     } catch (err) {

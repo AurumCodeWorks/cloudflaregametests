@@ -39,6 +39,7 @@ node tests/engine.test.ts          # rules engine: 9 tests incl. 3,000 random ha
 node tests/four-players.cjs        # 4 real browsers at one table (needs the dev server)
 node tests/abuse.mjs               # cheating/abuse attempts (needs the dev server)
 node tests/shop.cjs                # shop rules + another player sees your equipped deck (needs the dev server)
+node tests/unlimited.mjs           # demo mode: unlimited chips, auto re-buy on bust, everything unlocks free
 npm run test:cards                 # no part of any card touches another (serve /public on :8790)
 node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (serve /public on :8790)
 ```
@@ -51,7 +52,9 @@ npx wrangler deploy
 ```
 
 Settings live in `wrangler.jsonc` `vars`: `TURN_SECONDS`, `BOT_DELAY_MS`, `NEXT_HAND_MS`, `RAKE_PERCENT` (0 for free play),
-`STARTING_CHIPS`, `AUDIT` (keep "0" in production). Set Workers and Durable Objects spending limits in the dashboard.
+`STARTING_CHIPS`, `AUDIT` (keep "0" in production), `UNLIMITED` ("1" for the demo: balances are topped up from the mint
+account, busted players re-buy instead of leaving, and every shop item unlocks free; set "0" to restore normal chips and
+`PAYMENTS_MODE`). Set Workers and Durable Objects spending limits in the dashboard.
 
 ## Business models
 

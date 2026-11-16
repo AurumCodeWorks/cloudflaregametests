@@ -13,7 +13,7 @@ import {
 } from "./holdem.ts";
 import type { Action, ActionRecord, RakeRule, TableState } from "./holdem.ts";
 import { BOT_NAMES, decide } from "./bot.ts";
-import { transfer } from "./ledger.ts";
+import { transfer, topUp } from "./ledger.ts";
 import { tableCosmetics } from "./shop.ts";
 
 interface Waiting { userId: string; name: string }
@@ -51,6 +51,7 @@ export class Table extends DurableObject<Env> {
   // ------------------------------------------------------------------ config
   private get turnMs() { return Number(this.env.TURN_SECONDS ?? 20) * 1000; }
   private get nextHandMs() { return Number(this.env.NEXT_HAND_MS ?? 5500); }
+  private get unlimited() { return this.env.UNLIMITED === "1"; }
   private botDelay() { return Number(this.env.BOT_DELAY_MS ?? 1100) * (0.7 + Math.random() * 0.8); }
   private rakeRule(): RakeRule {
     const percent = Number(this.env.RAKE_PERCENT ?? 0);
@@ -268,6 +269,16 @@ export class Table extends DurableObject<Env> {
     for (let i = 0; i < SEAT_COUNT; i++) {
       const s = t.seats[i];
       if (!s) continue;
+      if (this.unlimited && !s.isBot && s.stack === 0 && !s.leaving && this.connected(s.userId)) {
+        // Demo: re-buy instead of being sent back to the lobby
+        await topUp(this.env.DB, `user:${s.userId}`);
+        const r = await transfer(this.env.DB, `user:${s.userId}`, `table:${id}`, BUY_IN, `rebuy:${id}:${s.userId}:${randomHex(6)}`, "buyin");
+        if (r === "ok") {
+          s.stack = BUY_IN;
+          this.log(`${s.name} re-buys for ${BUY_IN}`);
+          continue;
+        }
+      }
       if (!s.isBot && (s.leaving || !this.connected(s.userId) || s.stack === 0)) await this.standUp(i, s.stack === 0 ? "busted" : "left");
       else if (s.isBot && s.stack < BIG_BLIND * 2) await this.standUp(i, "rebuy");
     }
@@ -283,6 +294,7 @@ export class Table extends DurableObject<Env> {
       }
       if (i < 0) { p.waiting.push(w); continue; }
       const ref = `buyin:${id}:${w.userId}:${randomHex(6)}`;
+      if (this.unlimited) await topUp(this.env.DB, `user:${w.userId}`);
       const r = await transfer(this.env.DB, `user:${w.userId}`, `table:${id}`, BUY_IN, ref, "buyin");
       if (r === "insufficient") {
         for (const ws of this.sockets(w.userId)) {

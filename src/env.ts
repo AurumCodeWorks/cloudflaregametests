@@ -14,4 +14,5 @@ export interface Env {
   STARTING_CHIPS?: string; // play chips for a new account (default 1000)
   AUDIT?: string; // "1" enables GET /api/audit (dev/test only)
   PAYMENTS_MODE?: string; // "test" = shop purchases are simulated, no money taken
+  UNLIMITED?: string; // "1" = demo: play chips never run out (auto top-up and re-buy) and every shop item unlocks free
 }

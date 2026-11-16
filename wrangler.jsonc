@@ -23,7 +23,8 @@
     "RAKE_PERCENT": "0",
     "STARTING_CHIPS": "1000",
     "AUDIT": "0",
-    "PAYMENTS_MODE": "test"
+    "PAYMENTS_MODE": "test",
+    "UNLIMITED": "1"
   },
   "observability": { "enabled": true }
 }

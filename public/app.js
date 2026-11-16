@@ -85,9 +85,10 @@ async function api(path, opts = {}) {
 }
 async function refreshMe() {
   app.user = await api("/api/me");
-  $("wallet-balance").textContent = app.user.balance.toLocaleString();
+  // Demo servers keep chips topped up, so show that instead of a number that never goes down
+  $("wallet-balance").textContent = app.user.unlimited ? "Unlimited" : app.user.balance.toLocaleString();
   $("lobby-name").textContent = app.user.name;
-  $("daily").hidden = app.user.balance >= 500;
+  $("daily").hidden = app.user.unlimited || app.user.balance >= 500;
 }
 $("daily-btn").addEventListener("click", async () => {
   try {

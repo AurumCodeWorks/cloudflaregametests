@@ -2,7 +2,7 @@
 import { Lobby } from "./lobby.ts";
 import { Table } from "./table.ts";
 import type { Env } from "./env.ts";
-import { balance, transfer } from "./ledger.ts";
+import { balance, topUp, transfer } from "./ledger.ts";
 import { randomHex } from "./cards.ts";
 import { FILES } from "./generated/assets.ts";
 import { buy, equip, shopState } from "./shop.ts";
@@ -65,9 +65,14 @@ export default {
       const user = await authenticate(req, env);
       if (!user) return json({ error: "Please sign in again." }, 401);
 
-      if (path === "/api/me") return json({ userId: user.id, name: user.name, balance: await balance(env.DB, `user:${user.id}`) });
+      const unlimited = env.UNLIMITED === "1";
+      if (path === "/api/me") {
+        const bal = unlimited ? await topUp(env.DB, `user:${user.id}`) : await balance(env.DB, `user:${user.id}`);
+        return json({ userId: user.id, name: user.name, balance: bal, unlimited });
+      }
 
       if (path === "/api/daily" && req.method === "POST") {
+        if (unlimited) return json({ error: "Chips are unlimited in the demo." }, 400);
         // Free-play top-up: once a day, only when you're running low
         const bal = await balance(env.DB, `user:${user.id}`);
         if (bal >= 500) return json({ error: "Daily chips are for balances under 500." }, 400);
@@ -78,14 +83,15 @@ export default {
       }
 
       // ------------------------------------------------------------ cosmetics shop
-      const mode = env.PAYMENTS_MODE ?? "test";
-      if (path === "/api/shop" && req.method === "GET") return json(await shopState(env.DB, user.id, mode));
+      // The demo unlocks everything free, whatever the payments setting
+      const mode = unlimited ? "test" : env.PAYMENTS_MODE ?? "test";
+      if (path === "/api/shop" && req.method === "GET") return json({ ...(await shopState(env.DB, user.id, mode)), unlimited });
       if ((path === "/api/shop/buy" || path === "/api/shop/equip") && req.method === "POST") {
         const { itemId } = (await req.json().catch(() => ({}))) as { itemId?: unknown };
         if (typeof itemId !== "string" || itemId.length > 64) return json({ error: "Bad item." }, 400);
         const r = path.endsWith("/buy") ? await buy(env.DB, user.id, itemId, mode) : await equip(env.DB, user.id, itemId);
         if (!r.ok) return json({ error: r.error }, r.status);
-        return json({ granted: r.granted, ...(await shopState(env.DB, user.id, mode)) });
+        return json({ granted: r.granted, ...(await shopState(env.DB, user.id, mode)), unlimited });
       }
 
       if (path === "/api/play" && req.method === "POST") {

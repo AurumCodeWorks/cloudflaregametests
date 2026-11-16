@@ -37,3 +37,14 @@ export async function balance(db: D1Database, account: string): Promise<number> 
   const row = await db.prepare("SELECT balance FROM accounts WHERE id = ?").bind(account).first<{ balance: number }>();
   return row?.balance ?? 0;
 }
+
+/** Demo mode keeps every player's balance at least this high. */
+export const DEMO_FLOOR = 1_000_000;
+
+/** Demo mode: mint chips so an account never runs short. Each top-up is its own ledger entry, so the books still balance. */
+export async function topUp(db: D1Database, account: string, floor = DEMO_FLOOR): Promise<number> {
+  const bal = await balance(db, account);
+  if (bal >= floor) return bal;
+  await transfer(db, "mint", account, floor - bal, `demo:${account}:${crypto.randomUUID()}`, "demo-topup");
+  return floor;
+}
