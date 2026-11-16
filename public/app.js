@@ -111,6 +111,9 @@ async function verifyHand(hand) {
 }
 
 // ---------------------------------------------------------------- rendering
+const COURT = { J: "J", Q: "Q", K: "K" };
+const pip = (suit, cls = "pip") => `<svg class="${cls}" viewBox="0 0 100 100"><use href="#s-${suit}"/></svg>`;
+
 function cardEl(code, { small = false, win = false } = {}) {
   const el = document.createElement("div");
   el.className = "card" + (small ? " small" : "") + (win ? " win" : "");
@@ -120,15 +123,33 @@ function cardEl(code, { small = false, win = false } = {}) {
   }
   if (code === "??") {
     el.classList.add("back");
+    el.innerHTML = `<div class="back-field"></div><div class="crest">${pip("s", "crest-pip")}</div>`;
     return el;
   }
-  const rank = RANK[code[0]] ?? code[0];
-  const suit = SUIT[code[1]];
-  if (code[1] === "h" || code[1] === "d") el.classList.add("red");
-  el.innerHTML = `<div class="corner-tl"><span class="rank">${rank}</span><span class="suit-small">${suit}</span></div><div class="suit-big">${suit}</div>`;
+  const r = code[0];
+  const suit = code[1];
+  const rank = RANK[r] ?? r;
+  el.classList.add("face", suit === "h" || suit === "d" ? "red" : "black");
+  let art;
+  if (r === "A") {
+    el.classList.add("ace");
+    art = `<div class="ring"></div>${pip(suit, "pip big")}`;
+  } else if (COURT[r]) {
+    el.classList.add("court");
+    art = `<div class="panel"><span class="mono">${COURT[r]}</span>${pip(suit, "pip mini")}</div>`;
+  } else {
+    art = pip(suit, "pip big");
+  }
+  el.innerHTML =
+    `<div class="idx tl"><span class="r">${rank}</span>${pip(suit)}</div>` +
+    `<div class="art">${art}</div>` +
+    `<div class="idx br"><span class="r">${rank}</span>${pip(suit)}</div>`;
   el.dataset.card = code;
+  el.setAttribute("aria-label", `${rank} of ${{ c: "clubs", d: "diamonds", h: "hearts", s: "spades" }[suit]}`);
   return el;
 }
+
+app.cardEl = cardEl;
 
 function onState(s) {
   app.state = s;
