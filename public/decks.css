@@ -1,76 +1,76 @@
 /* Deck themes. "ivory" is the base design in style.css; each block below restyles the same card markup.
-   Selected with <html data-deck="..."> (any ancestor works, so previews can show several at once). */
+   Each card carries its own data-deck, so your cards and an opponent's card backs can use different decks. */
 
 /* ===================== NOIR: matte black stock, gold foil ===================== */
-[data-deck="noir"] .card.face {
+.card[data-deck="noir"].face {
   background: radial-gradient(130% 90% at 25% 0%, #2b2b2f 0%, #141416 55%, #09090a 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(217,182,94,.6), 0 2px 3px rgba(0,0,0,.5), 0 10px 22px rgba(0,0,0,.45);
 }
-[data-deck="noir"] .card.face::after { border-color: rgba(217,182,94,.42); }
-[data-deck="noir"] .card.black { color: #e4c676; }
-[data-deck="noir"] .card.red { color: #e8696e; }
-[data-deck="noir"] .card.black svg { fill: url(#ink-gold); }
-[data-deck="noir"] .card.red svg { fill: url(#ink-redfoil); }
-[data-deck="noir"] .card .pip.big { filter: none; }
-[data-deck="noir"] .card.ace .ring { width: calc(var(--w) * .42); border-color: rgba(217,182,94,.75); box-shadow: 0 0 0 calc(var(--w) * .035) #151517, 0 0 0 calc(var(--w) * .035 + 1px) rgba(217,182,94,.35); }
-[data-deck="noir"] .card.court .panel { background: linear-gradient(160deg, rgba(217,182,94,.18), rgba(217,182,94,.03)); border-color: rgba(217,182,94,.75); box-shadow: inset 0 0 0 2px #151517, inset 0 0 0 3px rgba(217,182,94,.3); }
-[data-deck="noir"] .card.back { background: #0b0b0c; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(217,182,94,.7), 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
-[data-deck="noir"] .card.back .back-field {
+.card[data-deck="noir"].face::after { border-color: rgba(217,182,94,.42); }
+.card[data-deck="noir"].black { color: #e4c676; }
+.card[data-deck="noir"].red { color: #e8696e; }
+.card[data-deck="noir"].black svg { fill: url(#ink-gold); }
+.card[data-deck="noir"].red svg { fill: url(#ink-redfoil); }
+.card[data-deck="noir"] .pip.big { filter: none; }
+.card[data-deck="noir"].ace .ring { width: calc(var(--w) * .42); border-color: rgba(217,182,94,.75); box-shadow: 0 0 0 calc(var(--w) * .035) #151517, 0 0 0 calc(var(--w) * .035 + 1px) rgba(217,182,94,.35); }
+.card[data-deck="noir"].court .panel { background: linear-gradient(160deg, rgba(217,182,94,.18), rgba(217,182,94,.03)); border-color: rgba(217,182,94,.75); box-shadow: inset 0 0 0 2px #151517, inset 0 0 0 3px rgba(217,182,94,.3); }
+.card[data-deck="noir"].back { background: #0b0b0c; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(217,182,94,.7), 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
+.card[data-deck="noir"].back .back-field {
   border-color: rgba(217,182,94,.8);
   background:
     radial-gradient(circle at 50% 100%, transparent 0 33%, rgba(217,182,94,.55) 34% 36%, transparent 37% 52%, rgba(217,182,94,.32) 53% 55%, transparent 56%) 0 0 / calc(var(--w) * .2) calc(var(--w) * .1),
     #0f0f10;
   box-shadow: inset 0 0 0 2px #0b0b0c, inset 0 0 0 3px rgba(217,182,94,.35);
 }
-[data-deck="noir"] .card.back .crest { background: #0b0b0c; box-shadow: 0 0 0 3px #0b0b0c, 0 0 0 4px rgba(217,182,94,.6); }
+.card[data-deck="noir"].back .crest { background: #0b0b0c; box-shadow: 0 0 0 3px #0b0b0c, 0 0 0 4px rgba(217,182,94,.6); }
 
 /* ===================== DECO: 1920s cream, black and gold geometry ===================== */
-[data-deck="deco"] .card.face {
+.card[data-deck="deco"].face {
   background: linear-gradient(160deg, #fbf5e6, #efe5cd);
 }
-[data-deck="deco"] .card.face::after { border: 3px double #1b1b1b; inset: calc(var(--w) * .045); border-radius: 2px; }
-[data-deck="deco"] .card.red { color: #9a1c22; }
-[data-deck="deco"] .card .idx .r { font-size: calc(var(--w) * .24); line-height: .8; }
-[data-deck="deco"] .card .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
-[data-deck="deco"] .card .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
-[data-deck="deco"] .card.ace .ring {
+.card[data-deck="deco"].face::after { border: 3px double #1b1b1b; inset: calc(var(--w) * .045); border-radius: 2px; }
+.card[data-deck="deco"].red { color: #9a1c22; }
+.card[data-deck="deco"] .idx .r { font-size: calc(var(--w) * .24); line-height: .8; }
+.card[data-deck="deco"] .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
+.card[data-deck="deco"] .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
+.card[data-deck="deco"].ace .ring {
   width: calc(var(--w) * .42); border-radius: 0; transform: rotate(45deg);
   border: 1px solid #1b1b1b; box-shadow: 0 0 0 3px #f6eedb, 0 0 0 4px #c49a3e;
 }
-[data-deck="deco"] .card.court .panel { background: #151515; border: 1px solid #c49a3e; box-shadow: inset 0 0 0 2px #151515, inset 0 0 0 3px rgba(217,182,94,.55); border-radius: 2px; }
-[data-deck="deco"] .card.court .pip.mini { fill: url(#ink-gold); }
-[data-deck="deco"] .card.back { background: #111; box-shadow: 0 0 0 1px #c49a3e, 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
-[data-deck="deco"] .card.back .back-field {
+.card[data-deck="deco"].court .panel { background: #151515; border: 1px solid #c49a3e; box-shadow: inset 0 0 0 2px #151515, inset 0 0 0 3px rgba(217,182,94,.55); border-radius: 2px; }
+.card[data-deck="deco"].court .pip.mini { fill: url(#ink-gold); }
+.card[data-deck="deco"].back { background: #111; box-shadow: 0 0 0 1px #c49a3e, 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
+.card[data-deck="deco"].back .back-field {
   border: 3px double rgba(217,182,94,.9); border-radius: 2px;
   background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(217,182,94,.5) 0 2.5deg, transparent 2.5deg 12deg), #121212;
   box-shadow: none;
 }
-[data-deck="deco"] .card.back .crest { background: #121212; border-radius: 0; box-shadow: 0 0 0 3px #121212, 0 0 0 4px rgba(217,182,94,.7); }
+.card[data-deck="deco"].back .crest { background: #121212; border-radius: 0; box-shadow: 0 0 0 3px #121212, 0 0 0 4px rgba(217,182,94,.7); }
 
 /* ===================== CASINO PRO: crisp white, jumbo indices ===================== */
-[data-deck="casino"] .card.face {
+.card[data-deck="casino"].face {
   background: linear-gradient(170deg, #ffffff, #f3f4f6);
   box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.35);
   border-radius: calc(var(--w) * .07);
 }
-[data-deck="casino"] .card.face::after { display: none; }
-[data-deck="casino"] .card.red { color: #d0101f; }
-[data-deck="casino"] .card.black { color: #0b0b0b; }
-[data-deck="casino"] .card.red svg { fill: #d0101f; }
-[data-deck="casino"] .card.black svg { fill: #0b0b0b; }
-[data-deck="casino"] .card .idx .r { font-size: calc(var(--w) * .36); font-weight: 800; letter-spacing: -.06em; }
-[data-deck="casino"] .card .idx .pip { width: calc(var(--w) * .18); height: calc(var(--w) * .18); margin-top: calc(var(--w) * .07); }
-[data-deck="casino"] .card .idx.tl { top: calc(var(--w) * .06); left: calc(var(--w) * .07); }
-[data-deck="casino"] .card .idx.br { bottom: calc(var(--w) * .06); right: calc(var(--w) * .07); }
-[data-deck="casino"] .card .art { inset: 34% 30%; }
-[data-deck="casino"] .card .pip.big { width: calc(var(--w) * .32); height: calc(var(--w) * .32); filter: none; }
-[data-deck="casino"] .card.ace .ring { display: none; }
-[data-deck="casino"] .card.ace .pip.big { width: calc(var(--w) * .38); height: calc(var(--w) * .38); }
-[data-deck="casino"] .card.court .art { inset: 34% 30%; }
-[data-deck="casino"] .card.court .panel { background: none; border: 0; box-shadow: none; }
-[data-deck="casino"] .card.court .mono { background: none; color: inherit; filter: none; font-size: calc(var(--w) * .3); }
-[data-deck="casino"] .card.back { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.35); }
-[data-deck="casino"] .card.back .back-field {
+.card[data-deck="casino"].face::after { display: none; }
+.card[data-deck="casino"].red { color: #d0101f; }
+.card[data-deck="casino"].black { color: #0b0b0b; }
+.card[data-deck="casino"].red svg { fill: #d0101f; }
+.card[data-deck="casino"].black svg { fill: #0b0b0b; }
+.card[data-deck="casino"] .idx .r { font-size: calc(var(--w) * .36); font-weight: 800; letter-spacing: -.06em; }
+.card[data-deck="casino"] .idx .pip { width: calc(var(--w) * .18); height: calc(var(--w) * .18); margin-top: calc(var(--w) * .07); }
+.card[data-deck="casino"] .idx.tl { top: calc(var(--w) * .06); left: calc(var(--w) * .07); }
+.card[data-deck="casino"] .idx.br { bottom: calc(var(--w) * .06); right: calc(var(--w) * .07); }
+.card[data-deck="casino"] .art { inset: 34% 30%; }
+.card[data-deck="casino"] .pip.big { width: calc(var(--w) * .32); height: calc(var(--w) * .32); filter: none; }
+.card[data-deck="casino"].ace .ring { display: none; }
+.card[data-deck="casino"].ace .pip.big { width: calc(var(--w) * .38); height: calc(var(--w) * .38); }
+.card[data-deck="casino"].court .art { inset: 34% 30%; }
+.card[data-deck="casino"].court .panel { background: none; border: 0; box-shadow: none; }
+.card[data-deck="casino"].court .mono { background: none; color: inherit; filter: none; font-size: calc(var(--w) * .3); }
+.card[data-deck="casino"].back { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.35); }
+.card[data-deck="casino"].back .back-field {
   inset: calc(var(--w) * .08); border: 0; border-radius: calc(var(--w) * .03);
   background:
     repeating-linear-gradient(45deg, rgba(255,255,255,.32) 0 1px, transparent 1px calc(var(--w) * .07)),
@@ -78,28 +78,28 @@
     #1d3a8a;
   box-shadow: none;
 }
-[data-deck="casino"] .card.back .crest { border-radius: 50%; transform: translate(-50%, -50%); background: #1d3a8a; border: 2px solid #fff; box-shadow: 0 0 0 3px #1d3a8a; }
-[data-deck="casino"] .card.back .crest-pip { transform: none; fill: #fff; }
+.card[data-deck="casino"].back .crest { border-radius: 50%; transform: translate(-50%, -50%); background: #1d3a8a; border: 2px solid #fff; box-shadow: 0 0 0 3px #1d3a8a; }
+.card[data-deck="casino"].back .crest-pip { transform: none; fill: #fff; }
 
 /* ===================== ROYAL: four-colour suits, gilded edges, navy and gold ===================== */
-[data-deck="royal"] .card.face {
+.card[data-deck="royal"].face {
   background: linear-gradient(165deg, #ffffff, #f6f3ea);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38);
 }
-[data-deck="royal"] .card .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
-[data-deck="royal"] .card .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
-[data-deck="royal"] .card.s-s { color: #111; }
-[data-deck="royal"] .card.s-h { color: #b3141c; }
-[data-deck="royal"] .card.s-d { color: #1d48b5; }
-[data-deck="royal"] .card.s-c { color: #12773f; }
-[data-deck="royal"] .card.s-d svg { fill: url(#ink-blue); }
-[data-deck="royal"] .card.s-c svg { fill: url(#ink-green); }
-[data-deck="royal"] .card.ace .ring { width: calc(var(--w) * .4); }
-[data-deck="royal"] .card.court .art { inset: 15% 37%; }
-[data-deck="royal"] .card.court .panel { background: linear-gradient(160deg, #1a2d5e, #0f1b3d); border-color: #c9a24a; box-shadow: inset 0 0 0 2px #13224a, inset 0 0 0 3px rgba(217,182,94,.55); }
-[data-deck="royal"] .card.court .pip.mini { fill: url(#ink-gold); }
-[data-deck="royal"] .card.back { background: #13224a; box-shadow: 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
-[data-deck="royal"] .card.back .back-field {
+.card[data-deck="royal"] .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
+.card[data-deck="royal"] .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
+.card[data-deck="royal"].s-s { color: #111; }
+.card[data-deck="royal"].s-h { color: #b3141c; }
+.card[data-deck="royal"].s-d { color: #1d48b5; }
+.card[data-deck="royal"].s-c { color: #12773f; }
+.card[data-deck="royal"].s-d svg { fill: url(#ink-blue); }
+.card[data-deck="royal"].s-c svg { fill: url(#ink-green); }
+.card[data-deck="royal"].ace .ring { width: calc(var(--w) * .4); }
+.card[data-deck="royal"].court .art { inset: 15% 37%; }
+.card[data-deck="royal"].court .panel { background: linear-gradient(160deg, #1a2d5e, #0f1b3d); border-color: #c9a24a; box-shadow: inset 0 0 0 2px #13224a, inset 0 0 0 3px rgba(217,182,94,.55); }
+.card[data-deck="royal"].court .pip.mini { fill: url(#ink-gold); }
+.card[data-deck="royal"].back { background: #13224a; box-shadow: 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
+.card[data-deck="royal"].back .back-field {
   border-color: rgba(217,182,94,.85);
   background:
     radial-gradient(circle, rgba(217,182,94,.55) 0 1.2px, transparent 1.8px) 0 0 / calc(var(--w) * .09) calc(var(--w) * .09),
@@ -107,69 +107,69 @@
     radial-gradient(circle at 50% 50%, #1d3266, #0e1a3a);
   box-shadow: inset 0 0 0 2px #13224a, inset 0 0 0 3px rgba(217,182,94,.45);
 }
-[data-deck="royal"] .card.back .crest { border-radius: 50%; transform: translate(-50%, -50%); background: #13224a; box-shadow: 0 0 0 3px #13224a, 0 0 0 4px rgba(217,182,94,.6); }
-[data-deck="royal"] .card.back .crest-pip { transform: none; }
+.card[data-deck="royal"].back .crest { border-radius: 50%; transform: translate(-50%, -50%); background: #13224a; box-shadow: 0 0 0 3px #13224a, 0 0 0 4px rgba(217,182,94,.6); }
+.card[data-deck="royal"].back .crest-pip { transform: none; }
 
 /* ===================== MODERN: minimalist, big index, big suit ===================== */
-[data-deck="modern"] .card.face {
+.card[data-deck="modern"].face {
   background: #f4f0e7;
   box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 3px rgba(0,0,0,.25), 0 12px 24px rgba(0,0,0,.35);
   border-radius: calc(var(--w) * .1);
 }
-[data-deck="modern"] .card.face::after { display: none; }
-[data-deck="modern"] .card.red { color: #c8372d; }
-[data-deck="modern"] .card.black { color: #1c1c1c; }
-[data-deck="modern"] .card.red svg { fill: #c8372d; }
-[data-deck="modern"] .card.black svg { fill: #1c1c1c; }
-[data-deck="modern"] .card .idx .r { font-size: calc(var(--w) * .36); font-weight: 800; letter-spacing: -.06em; }
-[data-deck="modern"] .card .idx .pip { display: none; }
-[data-deck="modern"] .card .idx.tl { top: calc(var(--w) * .09); left: calc(var(--w) * .1); align-items: flex-start; }
-[data-deck="modern"] .card .idx.br { display: none; }
-[data-deck="modern"] .card .art,
-[data-deck="modern"] .card.court .art { inset: auto calc(var(--w) * .1) calc(var(--w) * .11) auto; width: calc(var(--w) * .48); height: calc(var(--w) * .48); }
-[data-deck="modern"] .card .pip.big { width: 100%; height: 100%; filter: none; }
-[data-deck="modern"] .card.ace .ring { display: none; }
-[data-deck="modern"] .card.ace .pip.big { width: 100%; height: 100%; }
-[data-deck="modern"] .card.court .panel { background: none; border: 0; box-shadow: none; }
-[data-deck="modern"] .card.court .mono { display: none; }
-[data-deck="modern"] .card.court .pip.mini { width: 100%; height: 100%; }
-[data-deck="modern"] .card.back { background: linear-gradient(150deg, #2a2a2e, #161618); box-shadow: 0 2px 3px rgba(0,0,0,.3), 0 12px 24px rgba(0,0,0,.35); border-radius: calc(var(--w) * .1); }
-[data-deck="modern"] .card.back .back-field { border: 0; background: none; box-shadow: none; }
-[data-deck="modern"] .card.back .crest { background: none; border: 0; box-shadow: none; transform: translate(-50%, -50%); }
-[data-deck="modern"] .card.back .crest-pip { transform: none; fill: #c8a96a; }
+.card[data-deck="modern"].face::after { display: none; }
+.card[data-deck="modern"].red { color: #c8372d; }
+.card[data-deck="modern"].black { color: #1c1c1c; }
+.card[data-deck="modern"].red svg { fill: #c8372d; }
+.card[data-deck="modern"].black svg { fill: #1c1c1c; }
+.card[data-deck="modern"] .idx .r { font-size: calc(var(--w) * .36); font-weight: 800; letter-spacing: -.06em; }
+.card[data-deck="modern"] .idx .pip { display: none; }
+.card[data-deck="modern"] .idx.tl { top: calc(var(--w) * .09); left: calc(var(--w) * .1); align-items: flex-start; }
+.card[data-deck="modern"] .idx.br { display: none; }
+.card[data-deck="modern"] .art,
+.card[data-deck="modern"].court .art { inset: auto calc(var(--w) * .1) calc(var(--w) * .11) auto; width: calc(var(--w) * .48); height: calc(var(--w) * .48); }
+.card[data-deck="modern"] .pip.big { width: 100%; height: 100%; filter: none; }
+.card[data-deck="modern"].ace .ring { display: none; }
+.card[data-deck="modern"].ace .pip.big { width: 100%; height: 100%; }
+.card[data-deck="modern"].court .panel { background: none; border: 0; box-shadow: none; }
+.card[data-deck="modern"].court .mono { display: none; }
+.card[data-deck="modern"].court .pip.mini { width: 100%; height: 100%; }
+.card[data-deck="modern"].back { background: linear-gradient(150deg, #2a2a2e, #161618); box-shadow: 0 2px 3px rgba(0,0,0,.3), 0 12px 24px rgba(0,0,0,.35); border-radius: calc(var(--w) * .1); }
+.card[data-deck="modern"].back .back-field { border: 0; background: none; box-shadow: none; }
+.card[data-deck="modern"].back .crest { background: none; border: 0; box-shadow: none; transform: translate(-50%, -50%); }
+.card[data-deck="modern"].back .crest-pip { transform: none; fill: #c8a96a; }
 
 /* =====================================================================================
    Tier finishes: the higher the tier, the richer the finish.
    1 Modern (base) · 2 Casino Pro · 3 Art Deco · 4 Noir · 5 Royal · 6 Ivory & Gold (flagship)
    ===================================================================================== */
 /* 2 Casino Pro: glossy laminate sheen */
-[data-deck="casino"] .card.face::before {
+.card[data-deck="casino"].face::before {
   content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
   background: linear-gradient(125deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.18) 100%);
 }
 /* 3 Art Deco: gilded edges */
-[data-deck="deco"] .card.face { box-shadow: 0 0 0 1.5px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
+.card[data-deck="deco"].face { box-shadow: 0 0 0 1.5px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
 /* 4 Noir: faint white halo */
-[data-deck="noir"] .card.face,
-[data-deck="noir"] .card.back { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(217,182,94,.6), 0 0 14px 2px rgba(255,255,255,.2), 0 10px 22px rgba(0,0,0,.45); }
+.card[data-deck="noir"].face,
+.card[data-deck="noir"].back { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(217,182,94,.6), 0 0 14px 2px rgba(255,255,255,.2), 0 10px 22px rgba(0,0,0,.45); }
 /* 5 Royal: warm gold glow */
-[data-deck="royal"] .card.face { box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px #c9a24a, 0 0 16px 3px rgba(233,196,106,.45), 0 10px 22px rgba(0,0,0,.38); }
-[data-deck="royal"] .card.back { box-shadow: 0 0 0 2px #c9a24a, 0 0 16px 3px rgba(233,196,106,.45), 0 10px 22px rgba(0,0,0,.38); }
+.card[data-deck="royal"].face { box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px #c9a24a, 0 0 16px 3px rgba(233,196,106,.45), 0 10px 22px rgba(0,0,0,.38); }
+.card[data-deck="royal"].back { box-shadow: 0 0 0 2px #c9a24a, 0 0 16px 3px rgba(233,196,106,.45), 0 10px 22px rgba(0,0,0,.38); }
 /* 6 Ivory & Gold (flagship): gilded edge, gold glow and a slow foil shimmer */
-[data-deck="ivory"] .card.face,
-[data-deck="ivory"] .card.back {
+.card[data-deck="ivory"].face,
+.card[data-deck="ivory"].back {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1.5px #c9a24a, 0 0 18px 4px rgba(242,201,110,.5), 0 10px 22px rgba(0,0,0,.4);
 }
-[data-deck="ivory"] .card.face::before,
-[data-deck="ivory"] .card.back::before {
+.card[data-deck="ivory"].face::before,
+.card[data-deck="ivory"].back::before {
   /* Foil shimmer: a light band slides across using transform only, so the GPU does the work */
   content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 60%; z-index: 2; pointer-events: none;
   background: linear-gradient(105deg, transparent 0%, rgba(255,233,170,.5) 50%, transparent 100%);
   mix-blend-mode: screen; will-change: transform;
   transform: translate3d(0,0,0); animation: foil 9s cubic-bezier(.45,.05,.35,1) infinite;
 }
-[data-deck="ivory"] .card:nth-child(2n)::before { animation-delay: .5s; }
-[data-deck="ivory"] .card:nth-child(3n)::before { animation-delay: 1s; }
+.card[data-deck="ivory"]:nth-child(2n)::before { animation-delay: .5s; }
+.card[data-deck="ivory"]:nth-child(3n)::before { animation-delay: 1s; }
 @keyframes foil { 0%, 75% { transform: translate3d(0,0,0); } 100% { transform: translate3d(330%,0,0); } }
 .low-power .card::before { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .card::before { animation: none !important; } }

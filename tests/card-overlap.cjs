@@ -41,7 +41,7 @@ const PAIRS = [
       for (const s of "shdc") for (const r of "A23456789TJQK") {
         const slot = document.createElement("div");
         slot.className = "slot";
-        slot.append(window.__poker.cardEl(r + s));
+        slot.append(window.__poker.cardEl(r + s, { deck }));
         chk.append(slot);
       }
       document.body.append(chk);

@@ -26,7 +26,7 @@ const DECKS = [
       const row = document.createElement("div");
       row.style.cssText = "display:flex;gap:12px;justify-content:center";
       for (const c of ["As", "Kh", "Qd", "Jc", "Th", "??"]) {
-        const el = window.__poker.cardEl(c);
+        const el = window.__poker.cardEl(c, { deck: id });
         el.style.setProperty("--w", "92px");
         row.append(el);
       }

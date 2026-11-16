@@ -22,7 +22,8 @@
     "NEXT_HAND_MS": "5500",
     "RAKE_PERCENT": "0",
     "STARTING_CHIPS": "1000",
-    "AUDIT": "0"
+    "AUDIT": "0",
+    "PAYMENTS_MODE": "test"
   },
   "observability": { "enabled": true }
 }

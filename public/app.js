@@ -1,5 +1,6 @@
 // Card Table client. Renders whatever the table server sends; the server is the only authority.
 import * as FX from "./fx.js";
+import { createShop } from "./shop.js";
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const RANK = { T: "10" };
@@ -59,6 +60,7 @@ setCelebration(new URLSearchParams(location.search).get("celebration") || saved(
 function show(screen) {
   for (const s of ["login", "lobby", "table"]) $(`screen-${s}`).hidden = s !== screen;
   for (const id of ["leave-btn", "fair-btn", "history-btn"]) $(id).hidden = screen !== "table";
+  $("shop-btn").hidden = screen === "login" || !!app.demo;
   $("wallet-balance").parentElement.hidden = screen === "login";
   if (screen !== "table") $("drawer").classList.remove("open");
   if (screen !== "table") fanCards();
@@ -104,6 +106,7 @@ $("login-form").addEventListener("submit", async (e) => {
     app.token = r.token;
     localStorage.setItem("token", r.token);
     await refreshMe();
+    await loadShop();
     show("lobby");
   } catch (err) {
     toast(err.message);
@@ -176,9 +179,10 @@ async function verifyHand(hand) {
 const COURT = { J: "J", Q: "Q", K: "K" };
 const pip = (suit, cls = "pip") => `<svg class="${cls}" viewBox="0 0 100 100"><use href="#s-${suit}"/></svg>`;
 
-function cardEl(code, { small = false, win = false } = {}) {
+function cardEl(code, { small = false, win = false, deck = null } = {}) {
   const el = document.createElement("div");
   el.className = "card" + (small ? " small" : "") + (win ? " win" : "");
+  el.dataset.deck = deck || document.documentElement.dataset.deck || "modern";
   if (!code) {
     el.classList.add("placeholder");
     return el;
@@ -353,7 +357,9 @@ function animateDiff(old, s, before, flights) {
   const seatEl = (i) => document.querySelector(`.seat[data-abs="${i}"]`);
   const plateRect = (i) => seatEl(i)?.querySelector(".plate")?.getBoundingClientRect();
   const boardRect = $("board").getBoundingClientRect();
-  const back = () => cardEl("??");
+  // Card backs in flight use the deck of the card they stand in for (yours, or that opponent's)
+  const back = (el) => cardEl("??", { deck: el?.dataset?.deck });
+  const seatBack = (i) => () => cardEl("??", { deck: i === s.you.seat ? null : s.seats[i]?.cosmetics?.deck });
   const newHand = !oh || oh.no !== nh.no;
   const size = chipSize();
   let dealTime = 0;
@@ -379,7 +385,7 @@ function animateDiff(old, s, before, flights) {
     s.seats.forEach((st, i) => {
       const os = old.seats[i];
       if (!st || !os) return;
-      if (!os.folded && st.folded && before.holes[i]?.length) FX.muck(before.holes[i], boardRect, back);
+      if (!os.folded && st.folded && before.holes[i]?.length) FX.muck(before.holes[i], boardRect, seatBack(i));
       const els = seatEl(i)?.querySelectorAll(".hole .card") ?? [];
       st.hole.forEach((c, k) => {
         if (c !== "??" && os.hole[k] === "??" && els[k]) FX.flipIn(els[k], back, 400 + k * 180);
@@ -422,7 +428,7 @@ function animateDiff(old, s, before, flights) {
     nh.result.payouts.forEach((amt, i) => {
       if (amt <= 0) return;
       const plate = () => seatEl(i)?.querySelector(".plate");
-      const style = i === you ? app.celebration : "glow";
+      const style = i === you ? app.celebration : (s.seats[i]?.cosmetics?.celebration ?? "glow");
       setTimeout(() => plate() && FX.celebrate(style, plate(), amt, { chipColors: FX.chipColors() }), showdownPause + 700);
     });
   }
@@ -459,7 +465,8 @@ function render() {
 
     const hole = document.createElement("div");
     hole.className = "hole";
-    for (const c of seat.hole) hole.append(cardEl(c, { small: true }));
+    // Your cards use your deck; everyone else's cards show in the deck they've equipped
+    for (const c of seat.hole) hole.append(cardEl(c, { small: true, deck: i === you ? null : seat.cosmetics?.deck }));
 
     const plate = document.createElement("div");
     plate.className = "plate";
@@ -558,7 +565,7 @@ function fanCards() {
   for (const art of document.querySelectorAll(".hero-art")) {
     if (art.children.length) continue;
     ["As", "Kh", "Qd", "Jc", "Ts"].forEach((c, i) => {
-      const el = cardEl(c);
+      const el = cardEl(c, { deck: app.user ? null : "ivory" });
       el.style.transform = `rotate(${(i - 2) * 11}deg)`;
       art.append(el);
     });
@@ -612,6 +619,34 @@ setInterval(() => {
   const ring = document.querySelector(".seat.turn .plate");
   if (ring) ring.style.setProperty("--t", Math.max(0, (s.hand.deadline - Date.now()) / (s.turnSeconds * 1000)).toFixed(3));
 }, 200);
+
+// ---------------------------------------------------------------- cosmetics shop
+const shop = createShop({ api, toast, cardEl, FX, onEquip: applyEquipped });
+app.shop = shop;
+$("shop-btn").addEventListener("click", () => shop.open());
+$("lobby-shop").addEventListener("click", () => shop.open());
+
+/** Apply what the server says you have equipped, everywhere it shows. */
+function applyEquipped(eq) {
+  const v = (id) => id.split(":")[1];
+  setDeck(v(eq.deck));
+  setRoom(v(eq.room));
+  setChips(v(eq.chips));
+  setCelebration(v(eq.celebration));
+  document.querySelectorAll(".hero-art").forEach((a) => a.replaceChildren());
+  if (!$("screen-table").hidden) {
+    send({ type: "cosmetics" }); // so the table shows your new card backs/celebration to everyone
+    if (app.state) { render(); drawPools(app.state, []); }
+  } else fanCards();
+}
+async function loadShop() {
+  try {
+    await shop.load();
+    applyEquipped(shop.state.equipped);
+  } catch (err) {
+    console.error("shop", err);
+  }
+}
 
 // ---------------------------------------------------------------- showroom (demo mode)
 let demoTimers = [];
@@ -685,6 +720,7 @@ async function start() {
   if (app.token) {
     try {
       await refreshMe();
+      await loadShop();
       show("lobby");
       return;
     } catch {

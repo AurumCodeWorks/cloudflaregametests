@@ -13,4 +13,5 @@ export interface Env {
   RAKE_PERCENT?: string; // house cut on tables; "0" for free play
   STARTING_CHIPS?: string; // play chips for a new account (default 1000)
   AUDIT?: string; // "1" enables GET /api/audit (dev/test only)
+  PAYMENTS_MODE?: string; // "test" = shop purchases are simulated, no money taken
 }

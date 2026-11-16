@@ -70,6 +70,8 @@
     <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="4.5" cy="6.5" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="17.5" r="1.2" fill="currentColor"/></symbol>
     <symbol id="i-exit" viewBox="0 0 24 24"><path d="M14 4.5h4.5a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H14M10.5 8 6.5 12l4 4M6.8 12H15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12h-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-chip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21M5.6 5.6l2.3 2.3M16.1 16.1l2.3 2.3M18.4 5.6l-2.3 2.3M7.9 16.1l-2.3 2.3" stroke="currentColor" stroke-width="1.6"/></symbol>
   </svg>
 
@@ -84,6 +86,7 @@
         <svg class="ico"><use href="#i-shield" /></svg><span id="fair-chip-text">Fair play</span>
       </button>
       <button id="history-btn" class="icon-btn" hidden title="Hand history" aria-label="Hand history"><svg class="ico"><use href="#i-list" /></svg></button>
+      <button id="shop-btn" class="quiet-btn" data-testid="shop" hidden><svg class="ico"><use href="#i-bag" /></svg><span>Shop</span></button>
       <div class="wallet" data-testid="wallet" hidden>
         <svg class="ico"><use href="#i-chip" /></svg><span class="label">Balance</span><strong id="wallet-balance">0</strong>
       </div>
@@ -124,6 +127,7 @@
         <span>Running low? Claim 1,000 free chips once a day.</span>
         <button id="daily-btn" class="btn btn-ivory btn-small" data-testid="daily">Claim daily chips</button>
       </div>
+      <button class="link-btn" id="lobby-shop" data-testid="lobby-shop">Browse decks, rooms, chips and celebrations →</button>
       <p class="fine">Leave between hands and your stack returns to your balance. Play chips have no cash value.</p>
     </div>
   </section>
@@ -186,6 +190,30 @@
         <div class="log" id="log" data-testid="log"></div>
       </section>
     </aside>
+  </section>
+
+  <!-- Cosmetics shop -->
+  <section id="shop" class="shop" hidden aria-label="Shop">
+    <div class="shop-inner">
+      <header class="shop-head">
+        <div>
+          <p class="eyebrow">The collection</p>
+          <h2>Make the table yours</h2>
+          <p class="shop-sub">Purely cosmetic. Nothing here changes the cards, the odds or the speed of play.</p>
+        </div>
+        <button class="icon-btn" id="shop-close" aria-label="Close shop"><svg class="ico"><use href="#i-close" /></svg></button>
+      </header>
+      <div class="test-banner" id="test-banner" hidden>Test mode: purchases are simulated and free. No payment is taken.</div>
+      <nav class="shop-tabs" role="tablist">
+        <button data-tab="deck" class="on">Card decks</button>
+        <button data-tab="room">Rooms</button>
+        <button data-tab="chips">Chips</button>
+        <button data-tab="celebration">Celebrations</button>
+        <button data-tab="bundle">Collections</button>
+      </nav>
+      <div class="shop-note" id="shop-note"></div>
+      <div class="shop-grid" id="shop-grid"></div>
+    </div>
   </section>
 
   <div class="toast" id="toast" hidden></div>

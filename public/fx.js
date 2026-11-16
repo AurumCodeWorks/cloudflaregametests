@@ -222,8 +222,8 @@ export function chipBreakdown(amount, max = 7) {
 }
 
 /** A stack of chips in 3/4 view. `size` is the chip diameter in px. */
-export function chipStack(amount, size = 20, denoms = null) {
-  const st = CHIP_STYLES[chipStyle];
+export function chipStack(amount, size = 20, denoms = null, style = chipStyle) {
+  const st = CHIP_STYLES[style] ?? CHIP_STYLES[chipStyle];
   const chips = denoms ?? chipBreakdown(amount);
   const T = 9, RY = 27; // chip thickness and tilt (top face drawn as an ellipse)
   const n = Math.max(1, chips.length);
@@ -321,7 +321,7 @@ export function deal(targets, deckRect, makeBack) {
   targets.forEach(({ el }, i) => {
     if (reduced) return;
     el.style.opacity = "0";
-    const back = makeBack();
+    const back = makeBack(el); // the flying back matches the deck of the seat it lands at
     const to = el.getBoundingClientRect();
     const from = new DOMRect(center(deckRect).x - to.width / 2, center(deckRect).y - to.height / 2, to.width, to.height);
     fly(back, from, to, { duration: 560, delay: i * 150, lift: 22, hold: true }).then(() => (el.style.opacity = ""));
@@ -334,7 +334,7 @@ export async function flipIn(el, makeBack, delay = 0) {
   el.style.opacity = "0";
   await wait(delay);
   const r = el.getBoundingClientRect();
-  const back = makeBack();
+  const back = makeBack(el);
   Object.assign(back.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: 0 });
   fxLayer().append(back);
   await back.animate([{ transform: "perspective(700px) rotateY(0)" }, { transform: "perspective(700px) rotateY(90deg)" }], { duration: 260, easing: "ease-in", fill: "both" }).finished;
@@ -689,7 +689,9 @@ export async function celebrate(style, plateEl, amount, { chipColors = ["#c62828
   if (style === "goldrush") {
     const rays = overlay("fx-rays", { left: `${x}px`, top: `${y}px` });
     rays.animate([{ opacity: 0, transform: "translate(-50%,-50%) rotate(0deg) scale(.6)" }, { opacity: 1, transform: "translate(-50%,-50%) rotate(40deg) scale(1)", offset: 0.25 }, { opacity: 1, offset: 0.8 }, { opacity: 0, transform: "translate(-50%,-50%) rotate(110deg) scale(1.1)" }], { duration: 3200, fill: "both" }).finished.then(() => rays.remove());
-    const felt = document.getElementById("felt")?.getBoundingClientRect() ?? new DOMRect(0, 0, innerWidth, innerHeight);
+    // Headline over the table, or over the winner when there's no table on screen (e.g. shop previews)
+    const fr = document.getElementById("felt")?.getBoundingClientRect();
+    const felt = fr && fr.width > 0 ? fr : new DOMRect(x - 300, r.top - 40, 600, 280);
     const head = overlay("fx-headline", { left: `${felt.left + felt.width / 2}px`, top: `${felt.top + felt.height * 0.27}px` });
     head.innerHTML = `BIG WIN<small>+${amount.toLocaleString()}</small>`;
     const scrim = overlay("fx-scrim", { left: head.style.left, top: head.style.top });

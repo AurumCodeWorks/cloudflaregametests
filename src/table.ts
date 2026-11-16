@@ -14,6 +14,7 @@ import {
 import type { Action, ActionRecord, RakeRule, TableState } from "./holdem.ts";
 import { BOT_NAMES, decide } from "./bot.ts";
 import { transfer } from "./ledger.ts";
+import { tableCosmetics } from "./shop.ts";
 
 interface Waiting { userId: string; name: string }
 interface Persisted {
@@ -25,7 +26,9 @@ interface Persisted {
   next: { at: number; kind: "hand" | "act" } | null;
   turnDeadline: number | null;
   leaves: string[] | null; // per-card commitment leaves for the current hand (server-side only)
+  cosmetics?: Record<string, { deck: string; celebration: string }>; // what others see of each player
 }
+const BOT_COSMETICS = { deck: "modern", celebration: "glow" };
 interface Attachment { userId: string; name: string; windowStart: number; count: number }
 
 const ACTIONS = new Set(["fold", "check", "call", "raise", "allin"]);
@@ -80,6 +83,7 @@ export class Table extends DurableObject<Env> {
     if (!this.p) this.p = { tableId, t: newTable(), waiting: [], log: [], botSeq: 0, next: null, turnDeadline: null, leaves: null };
     const p = this.p;
     p.t.rake ??= this.rakeRule();
+    await this.loadCosmetics(userId);
     const seat = this.seatOf(userId);
     const waiting = p.waiting.some((w) => w.userId === userId);
     if (seat < 0 && !waiting) {
@@ -115,6 +119,7 @@ export class Table extends DurableObject<Env> {
       if (!this.p) return;
       if (m.type === "action") await this.onAction(ws, att.userId, m);
       else if (m.type === "leave") await this.onLeave(att.userId);
+      else if (m.type === "cosmetics") { await this.loadCosmetics(att.userId); await this.persist(); this.broadcast(); }
     });
   }
 
@@ -390,6 +395,7 @@ export class Table extends DurableObject<Env> {
         s && {
           name: s.name, isBot: s.isBot, you: i === you, stack: s.stack, bet: s.bet, total: s.total,
           folded: s.folded, allIn: s.allIn, inHand: s.inHand, connected: s.isBot || this.connected(s.userId),
+          cosmetics: s.isBot ? BOT_COSMETICS : (p.cosmetics?.[s.userId] ?? BOT_COSMETICS),
           hole: this.visibleHole(i, you),
         },
       ),
@@ -425,6 +431,14 @@ export class Table extends DurableObject<Env> {
     const me = this.seatOf(userId);
     if (me >= 0) for (const c of p.t.seats[me]!.hole) visible.add(c);
     return h.deck.map((c, i) => (visible.has(c) ? { card: c, salt: h.salts[i] } : { leaf: p.leaves![i] }));
+  }
+
+  private async loadCosmetics(userId: string) {
+    try {
+      (this.p!.cosmetics ??= {})[userId] = await tableCosmetics(this.env.DB, userId);
+    } catch (e) {
+      console.error("cosmetics", e);
+    }
   }
 
   // ------------------------------------------------------------------ helpers

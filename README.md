@@ -15,7 +15,11 @@ Multiplayer Texas Hold'em that runs entirely on Cloudflare. Free-play (play chip
 | hand histories | R2 | Every finished hand, with the deck and salts, for audits and disputes |
 | `src/holdem.ts`, `src/cards.ts` | — | Rules engine, CSPRNG shuffle, hand evaluator, per-card deck commitments |
 | `src/stakes.ts` | — | Stake tiers and disclosed house fees (for a future licensed real-money mode) |
+| `src/shop.ts`, `src/catalog.ts` + `migrations/0002_shop.sql` | D1 | Cosmetics shop: catalogue, ownership, equipped items, purchases. `PAYMENTS_MODE=test` simulates checkout; a payment provider's confirmed-payment webhook would call `grantPurchase()` |
 | `public/` | (bundled into the Worker) | Client: table UI, animations, decks, rooms, chips, celebrations |
+
+Cosmetics: decks, rooms, chip sets and win celebrations. Other players see your card backs and your win
+celebration; rooms and chip sets are how *you* see the table. Sign-ups are rate-limited to 5 per minute per IP.
 
 Fairness: the deck is committed (per-card SHA-256) before dealing and each player gets a proof for the cards
 they saw after the hand; folded hands stay private. The house never plays and never touches the cards.
@@ -34,6 +38,7 @@ npx wrangler dev --var BOT_DELAY_MS:150 --var NEXT_HAND_MS:1200 --var TURN_SECON
 node tests/engine.test.ts          # rules engine: 9 tests incl. 3,000 random hands + replay
 node tests/four-players.cjs        # 4 real browsers at one table (needs the dev server)
 node tests/abuse.mjs               # cheating/abuse attempts (needs the dev server)
+node tests/shop.cjs                # shop rules + another player sees your equipped deck (needs the dev server)
 npm run test:cards                 # no part of any card touches another (serve /public on :8790)
 node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (serve /public on :8790)
 ```

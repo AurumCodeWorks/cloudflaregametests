@@ -5,6 +5,7 @@ import type { Env } from "./env.ts";
 import { balance, transfer } from "./ledger.ts";
 import { randomHex } from "./cards.ts";
 import { FILES } from "./generated/assets.ts";
+import { buy, equip, shopState } from "./shop.ts";
 
 export { Lobby, Table };
 
@@ -74,6 +75,17 @@ export default {
         const r = await transfer(env.DB, "mint", `user:${user.id}`, 1000, `daily:${user.id}:${day}`, "daily");
         if (r === "duplicate") return json({ error: "You've already claimed today's chips." }, 400);
         return json({ balance: await balance(env.DB, `user:${user.id}`) });
+      }
+
+      // ------------------------------------------------------------ cosmetics shop
+      const mode = env.PAYMENTS_MODE ?? "test";
+      if (path === "/api/shop" && req.method === "GET") return json(await shopState(env.DB, user.id, mode));
+      if ((path === "/api/shop/buy" || path === "/api/shop/equip") && req.method === "POST") {
+        const { itemId } = (await req.json().catch(() => ({}))) as { itemId?: unknown };
+        if (typeof itemId !== "string" || itemId.length > 64) return json({ error: "Bad item." }, 400);
+        const r = path.endsWith("/buy") ? await buy(env.DB, user.id, itemId, mode) : await equip(env.DB, user.id, itemId);
+        if (!r.ok) return json({ error: r.error }, r.status);
+        return json({ granted: r.granted, ...(await shopState(env.DB, user.id, mode)) });
       }
 
       if (path === "/api/play" && req.method === "POST") {
