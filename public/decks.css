@@ -5,16 +5,14 @@
 [data-deck="noir"] .card.face {
   background: radial-gradient(130% 90% at 25% 0%, #2b2b2f 0%, #141416 55%, #09090a 100%);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(217,182,94,.6), 0 2px 3px rgba(0,0,0,.5), 0 10px 22px rgba(0,0,0,.45);
-  font-family: "Playfair Display", Georgia, serif;
 }
-[data-deck="noir"] .card .idx .r { font-size: calc(var(--w) * .26); }
 [data-deck="noir"] .card.face::after { border-color: rgba(217,182,94,.42); }
 [data-deck="noir"] .card.black { color: #e4c676; }
 [data-deck="noir"] .card.red { color: #e8696e; }
 [data-deck="noir"] .card.black svg { fill: url(#ink-gold); }
 [data-deck="noir"] .card.red svg { fill: url(#ink-redfoil); }
 [data-deck="noir"] .card .pip.big { filter: none; }
-[data-deck="noir"] .card.ace .ring { border-color: rgba(217,182,94,.75); box-shadow: 0 0 0 calc(var(--w) * .035) #151517, 0 0 0 calc(var(--w) * .035 + 1px) rgba(217,182,94,.35); }
+[data-deck="noir"] .card.ace .ring { width: calc(var(--w) * .42); border-color: rgba(217,182,94,.75); box-shadow: 0 0 0 calc(var(--w) * .035) #151517, 0 0 0 calc(var(--w) * .035 + 1px) rgba(217,182,94,.35); }
 [data-deck="noir"] .card.court .panel { background: linear-gradient(160deg, rgba(217,182,94,.18), rgba(217,182,94,.03)); border-color: rgba(217,182,94,.75); box-shadow: inset 0 0 0 2px #151517, inset 0 0 0 3px rgba(217,182,94,.3); }
 [data-deck="noir"] .card.back { background: #0b0b0c; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(217,182,94,.7), 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
 [data-deck="noir"] .card.back .back-field {
@@ -29,11 +27,10 @@
 /* ===================== DECO: 1920s cream, black and gold geometry ===================== */
 [data-deck="deco"] .card.face {
   background: linear-gradient(160deg, #fbf5e6, #efe5cd);
-  font-family: "Cinzel", Georgia, serif;
 }
 [data-deck="deco"] .card.face::after { border: 3px double #1b1b1b; inset: calc(var(--w) * .045); border-radius: 2px; }
 [data-deck="deco"] .card.red { color: #9a1c22; }
-[data-deck="deco"] .card .idx .r { font-size: calc(var(--w) * .21); letter-spacing: 0; }
+[data-deck="deco"] .card .idx .r { font-size: calc(var(--w) * .24); line-height: .8; }
 [data-deck="deco"] .card .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
 [data-deck="deco"] .card .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
 [data-deck="deco"] .card.ace .ring {
@@ -54,7 +51,6 @@
 [data-deck="casino"] .card.face {
   background: linear-gradient(170deg, #ffffff, #f3f4f6);
   box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.35);
-  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
   border-radius: calc(var(--w) * .07);
 }
 [data-deck="casino"] .card.face::after { display: none; }
@@ -62,8 +58,8 @@
 [data-deck="casino"] .card.black { color: #0b0b0b; }
 [data-deck="casino"] .card.red svg { fill: #d0101f; }
 [data-deck="casino"] .card.black svg { fill: #0b0b0b; }
-[data-deck="casino"] .card .idx .r { font-size: calc(var(--w) * .44); letter-spacing: -.02em; }
-[data-deck="casino"] .card .idx .pip { width: calc(var(--w) * .2); height: calc(var(--w) * .2); }
+[data-deck="casino"] .card .idx .r { font-size: calc(var(--w) * .36); font-weight: 800; letter-spacing: -.06em; }
+[data-deck="casino"] .card .idx .pip { width: calc(var(--w) * .18); height: calc(var(--w) * .18); margin-top: calc(var(--w) * .07); }
 [data-deck="casino"] .card .idx.tl { top: calc(var(--w) * .06); left: calc(var(--w) * .07); }
 [data-deck="casino"] .card .idx.br { bottom: calc(var(--w) * .06); right: calc(var(--w) * .07); }
 [data-deck="casino"] .card .art { inset: 34% 30%; }
@@ -89,15 +85,17 @@
 [data-deck="royal"] .card.face {
   background: linear-gradient(165deg, #ffffff, #f6f3ea);
   box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38);
-  font-family: "Libre Baskerville", Georgia, serif;
 }
-[data-deck="royal"] .card .idx .r { font-size: calc(var(--w) * .21); }
+[data-deck="royal"] .card .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
+[data-deck="royal"] .card .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
 [data-deck="royal"] .card.s-s { color: #111; }
 [data-deck="royal"] .card.s-h { color: #b3141c; }
 [data-deck="royal"] .card.s-d { color: #1d48b5; }
 [data-deck="royal"] .card.s-c { color: #12773f; }
 [data-deck="royal"] .card.s-d svg { fill: url(#ink-blue); }
 [data-deck="royal"] .card.s-c svg { fill: url(#ink-green); }
+[data-deck="royal"] .card.ace .ring { width: calc(var(--w) * .4); }
+[data-deck="royal"] .card.court .art { inset: 15% 37%; }
 [data-deck="royal"] .card.court .panel { background: linear-gradient(160deg, #1a2d5e, #0f1b3d); border-color: #c9a24a; box-shadow: inset 0 0 0 2px #13224a, inset 0 0 0 3px rgba(217,182,94,.55); }
 [data-deck="royal"] .card.court .pip.mini { fill: url(#ink-gold); }
 [data-deck="royal"] .card.back { background: #13224a; box-shadow: 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
@@ -116,7 +114,6 @@
 [data-deck="modern"] .card.face {
   background: #f4f0e7;
   box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 3px rgba(0,0,0,.25), 0 12px 24px rgba(0,0,0,.35);
-  font-family: "Manrope", Inter, sans-serif;
   border-radius: calc(var(--w) * .1);
 }
 [data-deck="modern"] .card.face::after { display: none; }
@@ -124,7 +121,7 @@
 [data-deck="modern"] .card.black { color: #1c1c1c; }
 [data-deck="modern"] .card.red svg { fill: #c8372d; }
 [data-deck="modern"] .card.black svg { fill: #1c1c1c; }
-[data-deck="modern"] .card .idx .r { font-size: calc(var(--w) * .38); font-weight: 800; letter-spacing: -.05em; }
+[data-deck="modern"] .card .idx .r { font-size: calc(var(--w) * .36); font-weight: 800; letter-spacing: -.06em; }
 [data-deck="modern"] .card .idx .pip { display: none; }
 [data-deck="modern"] .card .idx.tl { top: calc(var(--w) * .09); left: calc(var(--w) * .1); align-items: flex-start; }
 [data-deck="modern"] .card .idx.br { display: none; }
@@ -140,3 +137,37 @@
 [data-deck="modern"] .card.back .back-field { border: 0; background: none; box-shadow: none; }
 [data-deck="modern"] .card.back .crest { background: none; border: 0; box-shadow: none; transform: translate(-50%, -50%); }
 [data-deck="modern"] .card.back .crest-pip { transform: none; fill: #c8a96a; }
+
+/* =====================================================================================
+   Tier finishes: the higher the tier, the richer the finish.
+   1 Modern (base) · 2 Casino Pro · 3 Art Deco · 4 Noir · 5 Royal · 6 Ivory & Gold (flagship)
+   ===================================================================================== */
+/* 2 Casino Pro: glossy laminate sheen */
+[data-deck="casino"] .card.face::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(125deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.18) 100%);
+}
+/* 3 Art Deco: gilded edges */
+[data-deck="deco"] .card.face { box-shadow: 0 0 0 1.5px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
+/* 4 Noir: faint white halo */
+[data-deck="noir"] .card.face,
+[data-deck="noir"] .card.back { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(217,182,94,.6), 0 0 14px 2px rgba(255,255,255,.2), 0 10px 22px rgba(0,0,0,.45); }
+/* 5 Royal: warm gold glow */
+[data-deck="royal"] .card.face { box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px #c9a24a, 0 0 16px 3px rgba(233,196,106,.45), 0 10px 22px rgba(0,0,0,.38); }
+[data-deck="royal"] .card.back { box-shadow: 0 0 0 2px #c9a24a, 0 0 16px 3px rgba(233,196,106,.45), 0 10px 22px rgba(0,0,0,.38); }
+/* 6 Ivory & Gold (flagship): gilded edge, gold glow and a slow foil shimmer */
+[data-deck="ivory"] .card.face,
+[data-deck="ivory"] .card.back {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 0 0 1.5px #c9a24a, 0 0 18px 4px rgba(242,201,110,.5), 0 10px 22px rgba(0,0,0,.4);
+}
+[data-deck="ivory"] .card.face::before,
+[data-deck="ivory"] .card.back::before {
+  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 38%, rgba(255,233,170,.55) 50%, transparent 62%) no-repeat;
+  background-size: 260% 100%; background-position: 160% 0; mix-blend-mode: screen;
+  animation: foil 7s ease-in-out infinite;
+}
+[data-deck="ivory"] .card:nth-child(2n)::before { animation-delay: .35s; }
+[data-deck="ivory"] .card:nth-child(3n)::before { animation-delay: .7s; }
+@keyframes foil { 0%, 72% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+@media (prefers-reduced-motion: reduce) { .card::before { animation: none !important; } }

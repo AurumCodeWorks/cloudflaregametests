@@ -84,7 +84,8 @@ input { font: inherit; color: var(--text); background: var(--panel-2); border: 1
     0 0 0 1px rgba(122, 92, 34, .55),
     0 2px 3px rgba(0, 0, 0, .35),
     0 10px 22px rgba(0, 0, 0, .38);
-  font-family: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+  font-family: "Roboto Slab", Rockwell, Georgia, serif;
+  font-variant-numeric: lining-nums;
   overflow: hidden;
   animation: deal .3s cubic-bezier(.2, .8, .2, 1);
 }
@@ -100,21 +101,22 @@ input { font: inherit; color: var(--text); background: var(--panel-2); border: 1
   position: absolute; z-index: 1; display: flex; flex-direction: column; align-items: center;
   line-height: .82;
 }
-.card .idx.tl { top: calc(var(--w) * .085); left: calc(var(--w) * .09); }
-.card .idx.br { bottom: calc(var(--w) * .085); right: calc(var(--w) * .09); transform: rotate(180deg); }
-.card .idx .r { font-size: calc(var(--w) * .3); font-weight: 700; letter-spacing: -.04em; }
-.card .idx .pip { width: calc(var(--w) * .16); height: calc(var(--w) * .16); margin-top: calc(var(--w) * .025); }
+.card .idx.tl { top: calc(var(--w) * .105); left: calc(var(--w) * .1); }
+.card .idx.br { bottom: calc(var(--w) * .105); right: calc(var(--w) * .1); transform: rotate(180deg); }
+.card .idx .r { font-size: calc(var(--w) * .28); font-weight: 700; letter-spacing: -.04em; line-height: .78; }
+.card .idx .pip { width: calc(var(--w) * .15); height: calc(var(--w) * .15); margin-top: calc(var(--w) * .085); }
 .card .art { position: absolute; inset: 24% 20%; display: grid; place-items: center; }
 .card .pip.big { width: calc(var(--w) * .46); height: calc(var(--w) * .46); filter: drop-shadow(0 1px 0 rgba(255,255,255,.6)); }
 /* Ace: ornamental gold ring */
 .card.ace .ring {
-  position: absolute; width: calc(var(--w) * .5); aspect-ratio: 1; border-radius: 50%;
+  position: absolute; width: calc(var(--w) * .46); aspect-ratio: 1; border-radius: 50%;
   border: 1px solid var(--gold-line);
   box-shadow: 0 0 0 calc(var(--w) * .035) rgba(255, 252, 244, .9), 0 0 0 calc(var(--w) * .035 + 1px) rgba(176, 138, 58, .4);
 }
 .card.ace .pip.big { width: calc(var(--w) * .3); height: calc(var(--w) * .3); }
 /* Court cards: gold foil monogram panel */
-.card.court .art { inset: 14% 31%; }
+.card.court .art { inset: 15% 35.5%; }
+.card.r-T .idx .r { letter-spacing: -.1em; }
 .card.court .panel {
   width: 100%; height: 100%; border-radius: calc(var(--w) * .04);
   border: 1px solid rgba(176, 138, 58, .8);

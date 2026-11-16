@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test:engine": "node tests/engine.test.ts",
     "test:e2e": "node tests/four-players.cjs",
-    "test:abuse": "node tests/abuse.mjs"
+    "test:abuse": "node tests/abuse.mjs",
+    "test:cards": "node tests/card-overlap.cjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261116.1",

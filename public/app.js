@@ -139,7 +139,7 @@ function cardEl(code, { small = false, win = false } = {}) {
   const r = code[0];
   const suit = code[1];
   const rank = RANK[r] ?? r;
-  el.classList.add("face", suit === "h" || suit === "d" ? "red" : "black", `s-${suit}`);
+  el.classList.add("face", suit === "h" || suit === "d" ? "red" : "black", `s-${suit}`, `r-${r}`);
   let art;
   if (r === "A") {
     el.classList.add("ace");
