@@ -13,6 +13,16 @@ const app = {
 };
 window.__poker = app; // test hook
 
+// Card deck theme: ?deck=noir, or the player's saved choice
+const DECKS = ["ivory", "noir", "deco", "casino", "royal", "modern"];
+function setDeck(name) {
+  if (!DECKS.includes(name)) name = "ivory";
+  document.documentElement.dataset.deck = name;
+  try { localStorage.setItem("deck", name); } catch {}
+}
+app.setDeck = setDeck;
+setDeck(new URLSearchParams(location.search).get("deck") || (() => { try { return localStorage.getItem("deck"); } catch { return null; } })() || "ivory");
+
 // ---------------------------------------------------------------- screens
 function show(screen) {
   for (const s of ["login", "lobby", "table"]) $(`screen-${s}`).hidden = s !== screen;
@@ -129,7 +139,7 @@ function cardEl(code, { small = false, win = false } = {}) {
   const r = code[0];
   const suit = code[1];
   const rank = RANK[r] ?? r;
-  el.classList.add("face", suit === "h" || suit === "d" ? "red" : "black");
+  el.classList.add("face", suit === "h" || suit === "d" ? "red" : "black", `s-${suit}`);
   let art;
   if (r === "A") {
     el.classList.add("ace");

@@ -1,0 +1,142 @@
+/* Deck themes. "ivory" is the base design in style.css; each block below restyles the same card markup.
+   Selected with <html data-deck="..."> (any ancestor works, so previews can show several at once). */
+
+/* ===================== NOIR: matte black stock, gold foil ===================== */
+[data-deck="noir"] .card.face {
+  background: radial-gradient(130% 90% at 25% 0%, #2b2b2f 0%, #141416 55%, #09090a 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 0 0 1px rgba(217,182,94,.6), 0 2px 3px rgba(0,0,0,.5), 0 10px 22px rgba(0,0,0,.45);
+  font-family: "Playfair Display", Georgia, serif;
+}
+[data-deck="noir"] .card .idx .r { font-size: calc(var(--w) * .26); }
+[data-deck="noir"] .card.face::after { border-color: rgba(217,182,94,.42); }
+[data-deck="noir"] .card.black { color: #e4c676; }
+[data-deck="noir"] .card.red { color: #e8696e; }
+[data-deck="noir"] .card.black svg { fill: url(#ink-gold); }
+[data-deck="noir"] .card.red svg { fill: url(#ink-redfoil); }
+[data-deck="noir"] .card .pip.big { filter: none; }
+[data-deck="noir"] .card.ace .ring { border-color: rgba(217,182,94,.75); box-shadow: 0 0 0 calc(var(--w) * .035) #151517, 0 0 0 calc(var(--w) * .035 + 1px) rgba(217,182,94,.35); }
+[data-deck="noir"] .card.court .panel { background: linear-gradient(160deg, rgba(217,182,94,.18), rgba(217,182,94,.03)); border-color: rgba(217,182,94,.75); box-shadow: inset 0 0 0 2px #151517, inset 0 0 0 3px rgba(217,182,94,.3); }
+[data-deck="noir"] .card.back { background: #0b0b0c; box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 0 0 1px rgba(217,182,94,.7), 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
+[data-deck="noir"] .card.back .back-field {
+  border-color: rgba(217,182,94,.8);
+  background:
+    radial-gradient(circle at 50% 100%, transparent 0 33%, rgba(217,182,94,.55) 34% 36%, transparent 37% 52%, rgba(217,182,94,.32) 53% 55%, transparent 56%) 0 0 / calc(var(--w) * .2) calc(var(--w) * .1),
+    #0f0f10;
+  box-shadow: inset 0 0 0 2px #0b0b0c, inset 0 0 0 3px rgba(217,182,94,.35);
+}
+[data-deck="noir"] .card.back .crest { background: #0b0b0c; box-shadow: 0 0 0 3px #0b0b0c, 0 0 0 4px rgba(217,182,94,.6); }
+
+/* ===================== DECO: 1920s cream, black and gold geometry ===================== */
+[data-deck="deco"] .card.face {
+  background: linear-gradient(160deg, #fbf5e6, #efe5cd);
+  font-family: "Cinzel", Georgia, serif;
+}
+[data-deck="deco"] .card.face::after { border: 3px double #1b1b1b; inset: calc(var(--w) * .045); border-radius: 2px; }
+[data-deck="deco"] .card.red { color: #9a1c22; }
+[data-deck="deco"] .card .idx .r { font-size: calc(var(--w) * .21); letter-spacing: 0; }
+[data-deck="deco"] .card .idx.tl { top: calc(var(--w) * .11); left: calc(var(--w) * .11); }
+[data-deck="deco"] .card .idx.br { bottom: calc(var(--w) * .11); right: calc(var(--w) * .11); }
+[data-deck="deco"] .card.ace .ring {
+  width: calc(var(--w) * .42); border-radius: 0; transform: rotate(45deg);
+  border: 1px solid #1b1b1b; box-shadow: 0 0 0 3px #f6eedb, 0 0 0 4px #c49a3e;
+}
+[data-deck="deco"] .card.court .panel { background: #151515; border: 1px solid #c49a3e; box-shadow: inset 0 0 0 2px #151515, inset 0 0 0 3px rgba(217,182,94,.55); border-radius: 2px; }
+[data-deck="deco"] .card.court .pip.mini { fill: url(#ink-gold); }
+[data-deck="deco"] .card.back { background: #111; box-shadow: 0 0 0 1px #c49a3e, 0 2px 3px rgba(0,0,0,.4), 0 10px 22px rgba(0,0,0,.4); }
+[data-deck="deco"] .card.back .back-field {
+  border: 3px double rgba(217,182,94,.9); border-radius: 2px;
+  background: repeating-conic-gradient(from 0deg at 50% 50%, rgba(217,182,94,.5) 0 2.5deg, transparent 2.5deg 12deg), #121212;
+  box-shadow: none;
+}
+[data-deck="deco"] .card.back .crest { background: #121212; border-radius: 0; box-shadow: 0 0 0 3px #121212, 0 0 0 4px rgba(217,182,94,.7); }
+
+/* ===================== CASINO PRO: crisp white, jumbo indices ===================== */
+[data-deck="casino"] .card.face {
+  background: linear-gradient(170deg, #ffffff, #f3f4f6);
+  box-shadow: 0 0 0 1px rgba(0,0,0,.18), 0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.35);
+  font-family: "Barlow Condensed", "Arial Narrow", sans-serif;
+  border-radius: calc(var(--w) * .07);
+}
+[data-deck="casino"] .card.face::after { display: none; }
+[data-deck="casino"] .card.red { color: #d0101f; }
+[data-deck="casino"] .card.black { color: #0b0b0b; }
+[data-deck="casino"] .card.red svg { fill: #d0101f; }
+[data-deck="casino"] .card.black svg { fill: #0b0b0b; }
+[data-deck="casino"] .card .idx .r { font-size: calc(var(--w) * .44); letter-spacing: -.02em; }
+[data-deck="casino"] .card .idx .pip { width: calc(var(--w) * .2); height: calc(var(--w) * .2); }
+[data-deck="casino"] .card .idx.tl { top: calc(var(--w) * .06); left: calc(var(--w) * .07); }
+[data-deck="casino"] .card .idx.br { bottom: calc(var(--w) * .06); right: calc(var(--w) * .07); }
+[data-deck="casino"] .card .art { inset: 34% 30%; }
+[data-deck="casino"] .card .pip.big { width: calc(var(--w) * .32); height: calc(var(--w) * .32); filter: none; }
+[data-deck="casino"] .card.ace .ring { display: none; }
+[data-deck="casino"] .card.ace .pip.big { width: calc(var(--w) * .38); height: calc(var(--w) * .38); }
+[data-deck="casino"] .card.court .art { inset: 34% 30%; }
+[data-deck="casino"] .card.court .panel { background: none; border: 0; box-shadow: none; }
+[data-deck="casino"] .card.court .mono { background: none; color: inherit; filter: none; font-size: calc(var(--w) * .3); }
+[data-deck="casino"] .card.back { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2), 0 2px 3px rgba(0,0,0,.3), 0 10px 22px rgba(0,0,0,.35); }
+[data-deck="casino"] .card.back .back-field {
+  inset: calc(var(--w) * .08); border: 0; border-radius: calc(var(--w) * .03);
+  background:
+    repeating-linear-gradient(45deg, rgba(255,255,255,.32) 0 1px, transparent 1px calc(var(--w) * .07)),
+    repeating-linear-gradient(-45deg, rgba(255,255,255,.32) 0 1px, transparent 1px calc(var(--w) * .07)),
+    #1d3a8a;
+  box-shadow: none;
+}
+[data-deck="casino"] .card.back .crest { border-radius: 50%; transform: translate(-50%, -50%); background: #1d3a8a; border: 2px solid #fff; box-shadow: 0 0 0 3px #1d3a8a; }
+[data-deck="casino"] .card.back .crest-pip { transform: none; fill: #fff; }
+
+/* ===================== ROYAL: four-colour suits, gilded edges, navy and gold ===================== */
+[data-deck="royal"] .card.face {
+  background: linear-gradient(165deg, #ffffff, #f6f3ea);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.9), 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38);
+  font-family: "Libre Baskerville", Georgia, serif;
+}
+[data-deck="royal"] .card .idx .r { font-size: calc(var(--w) * .21); }
+[data-deck="royal"] .card.s-s { color: #111; }
+[data-deck="royal"] .card.s-h { color: #b3141c; }
+[data-deck="royal"] .card.s-d { color: #1d48b5; }
+[data-deck="royal"] .card.s-c { color: #12773f; }
+[data-deck="royal"] .card.s-d svg { fill: url(#ink-blue); }
+[data-deck="royal"] .card.s-c svg { fill: url(#ink-green); }
+[data-deck="royal"] .card.court .panel { background: linear-gradient(160deg, #1a2d5e, #0f1b3d); border-color: #c9a24a; box-shadow: inset 0 0 0 2px #13224a, inset 0 0 0 3px rgba(217,182,94,.55); }
+[data-deck="royal"] .card.court .pip.mini { fill: url(#ink-gold); }
+[data-deck="royal"] .card.back { background: #13224a; box-shadow: 0 0 0 2px #c9a24a, 0 2px 3px rgba(0,0,0,.35), 0 10px 22px rgba(0,0,0,.38); }
+[data-deck="royal"] .card.back .back-field {
+  border-color: rgba(217,182,94,.85);
+  background:
+    radial-gradient(circle, rgba(217,182,94,.55) 0 1.2px, transparent 1.8px) 0 0 / calc(var(--w) * .09) calc(var(--w) * .09),
+    radial-gradient(circle, rgba(217,182,94,.3) 0 1px, transparent 1.6px) calc(var(--w) * .045) calc(var(--w) * .045) / calc(var(--w) * .09) calc(var(--w) * .09),
+    radial-gradient(circle at 50% 50%, #1d3266, #0e1a3a);
+  box-shadow: inset 0 0 0 2px #13224a, inset 0 0 0 3px rgba(217,182,94,.45);
+}
+[data-deck="royal"] .card.back .crest { border-radius: 50%; transform: translate(-50%, -50%); background: #13224a; box-shadow: 0 0 0 3px #13224a, 0 0 0 4px rgba(217,182,94,.6); }
+[data-deck="royal"] .card.back .crest-pip { transform: none; }
+
+/* ===================== MODERN: minimalist, big index, big suit ===================== */
+[data-deck="modern"] .card.face {
+  background: #f4f0e7;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.08), 0 2px 3px rgba(0,0,0,.25), 0 12px 24px rgba(0,0,0,.35);
+  font-family: "Manrope", Inter, sans-serif;
+  border-radius: calc(var(--w) * .1);
+}
+[data-deck="modern"] .card.face::after { display: none; }
+[data-deck="modern"] .card.red { color: #c8372d; }
+[data-deck="modern"] .card.black { color: #1c1c1c; }
+[data-deck="modern"] .card.red svg { fill: #c8372d; }
+[data-deck="modern"] .card.black svg { fill: #1c1c1c; }
+[data-deck="modern"] .card .idx .r { font-size: calc(var(--w) * .38); font-weight: 800; letter-spacing: -.05em; }
+[data-deck="modern"] .card .idx .pip { display: none; }
+[data-deck="modern"] .card .idx.tl { top: calc(var(--w) * .09); left: calc(var(--w) * .1); align-items: flex-start; }
+[data-deck="modern"] .card .idx.br { display: none; }
+[data-deck="modern"] .card .art,
+[data-deck="modern"] .card.court .art { inset: auto calc(var(--w) * .1) calc(var(--w) * .11) auto; width: calc(var(--w) * .48); height: calc(var(--w) * .48); }
+[data-deck="modern"] .card .pip.big { width: 100%; height: 100%; filter: none; }
+[data-deck="modern"] .card.ace .ring { display: none; }
+[data-deck="modern"] .card.ace .pip.big { width: 100%; height: 100%; }
+[data-deck="modern"] .card.court .panel { background: none; border: 0; box-shadow: none; }
+[data-deck="modern"] .card.court .mono { display: none; }
+[data-deck="modern"] .card.court .pip.mini { width: 100%; height: 100%; }
+[data-deck="modern"] .card.back { background: linear-gradient(150deg, #2a2a2e, #161618); box-shadow: 0 2px 3px rgba(0,0,0,.3), 0 12px 24px rgba(0,0,0,.35); border-radius: calc(var(--w) * .1); }
+[data-deck="modern"] .card.back .back-field { border: 0; background: none; box-shadow: none; }
+[data-deck="modern"] .card.back .crest { background: none; border: 0; box-shadow: none; transform: translate(-50%, -50%); }
+[data-deck="modern"] .card.back .crest-pip { transform: none; fill: #c8a96a; }

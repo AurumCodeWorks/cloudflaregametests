@@ -114,7 +114,7 @@ input { font: inherit; color: var(--text); background: var(--panel-2); border: 1
 }
 .card.ace .pip.big { width: calc(var(--w) * .3); height: calc(var(--w) * .3); }
 /* Court cards: gold foil monogram panel */
-.card.court .art { inset: 13% 29%; }
+.card.court .art { inset: 14% 31%; }
 .card.court .panel {
   width: 100%; height: 100%; border-radius: calc(var(--w) * .04);
   border: 1px solid rgba(176, 138, 58, .8);
@@ -123,7 +123,7 @@ input { font: inherit; color: var(--text); background: var(--panel-2); border: 1
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(var(--w) * .01);
 }
 .card.court .mono {
-  font-size: calc(var(--w) * .34); font-weight: 700; line-height: .9;
+  font-size: calc(var(--w) * .3); font-weight: 700; line-height: .9;
   background: linear-gradient(135deg, #7d5e22, #d9b65e 35%, #fbeab0 50%, #c49a3e 68%, #6f521b);
   -webkit-background-clip: text; background-clip: text; color: transparent;
   filter: drop-shadow(0 1px 0 rgba(90, 60, 10, .25));
