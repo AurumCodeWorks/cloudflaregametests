@@ -82,7 +82,7 @@
 .stack-col > .chip1 { position: absolute; left: 0; }
 @media (max-width: 900px) {
   .zone { width: 58px; height: 58px; }
-  .zone.pos-0 { left: 80%; top: 90%; }
+  .zone.pos-0 { left: 77%; top: 84%; }
   .zone.pos-1 { left: 22%; top: 47%; }
   .zone.pos-2 { left: 76%; top: 12%; }
   .zone.pos-3 { left: 78%; top: 47%; }
@@ -90,12 +90,3 @@
   .pot-area::before { width: 120px; height: 44px; }
 }
 
-/* Showroom controls (demo mode only) */
-.showroom { position: fixed; right: 16px; bottom: 16px; z-index: 80; width: 290px; background: rgba(13,17,23,.94); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; box-shadow: 0 12px 30px rgba(0,0,0,.5); font: 13px Inter, sans-serif; }
-.showroom h3 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
-.showroom h3 small { color: var(--muted); font-weight: 400; }
-.showroom label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; color: var(--muted); }
-.showroom select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
-.showroom .row { display: flex; gap: 8px; }
-.showroom .row button { flex: 1; padding: 8px 10px; font-size: 13px; font-weight: 600; }
-@media (max-width: 900px) { .showroom { left: 8px; right: 8px; bottom: 8px; width: auto; grid-template-columns: 1fr 1fr; } .showroom h3, .showroom .row { grid-column: 1 / -1; } .showroom label { grid-template-columns: 1fr; gap: 2px; } }

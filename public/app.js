@@ -58,8 +58,10 @@ setCelebration(new URLSearchParams(location.search).get("celebration") || saved(
 // ---------------------------------------------------------------- screens
 function show(screen) {
   for (const s of ["login", "lobby", "table"]) $(`screen-${s}`).hidden = s !== screen;
-  $("leave-btn").hidden = screen !== "table";
+  for (const id of ["leave-btn", "fair-btn", "history-btn"]) $(id).hidden = screen !== "table";
   $("wallet-balance").parentElement.hidden = screen === "login";
+  if (screen !== "table") $("drawer").classList.remove("open");
+  if (screen !== "table") fanCards();
 }
 function toast(msg) {
   const t = $("toast");
@@ -108,6 +110,11 @@ $("play-btn").addEventListener("click", async () => {
 });
 
 $("leave-btn").addEventListener("click", () => send({ type: "leave" }));
+const openDrawer = () => $("drawer").classList.add("open");
+$("fair-btn").addEventListener("click", openDrawer);
+$("history-btn").addEventListener("click", openDrawer);
+$("drawer-close").addEventListener("click", () => $("drawer").classList.remove("open"));
+addEventListener("keydown", (e) => e.key === "Escape" && $("drawer").classList.remove("open"));
 
 // ---------------------------------------------------------------- websocket
 function connect(tableId) {
@@ -428,7 +435,7 @@ function render() {
     el.dataset.abs = i;
     if (!seat) {
       el.classList.add("empty");
-      el.innerHTML = `<div class="hole"></div><div class="plate"><div class="name">Empty seat</div></div>`;
+      el.innerHTML = `<div class="hole"></div><div class="plate"><div class="name"><span class="nm">Open seat</span></div></div>`;
       return;
     }
     if (h && h.toAct === i && !h.result) el.classList.add("turn", ...(seat.isBot || !h.deadline ? ["bot-turn"] : []));
@@ -441,7 +448,8 @@ function render() {
 
     const plate = document.createElement("div");
     plate.className = "plate";
-    const badge = seat.isBot ? `<span class="badge bot">BOT</span>` : seat.you ? `<span class="badge you">YOU</span>` : "";
+    const badge = seat.isBot ? `<span class="tag-bot">BOT</span>` : seat.you ? `<span class="tag-you">YOU</span>` : "";
+    const display = seat.isBot ? seat.name.replace(/\s*\(bot\)\s*$/i, "") : seat.name;
     let status = "";
     if (h?.result && winners.has(i)) {
       const shown = h.result.shown[i];
@@ -450,9 +458,10 @@ function render() {
     else if (seat.allIn) status = `<div class="status allin">ALL IN</div>`;
     else if (seat.folded) status = `<div class="status">Folded</div>`;
     else if (!seat.connected) status = `<div class="status">Disconnected</div>`;
-    else if (h && h.toAct === i && !h.result) status = `<div class="status">Thinking…</div>`;
+    else if (h && h.toAct === i && !h.result) status = `<div class="status">${seat.you ? "Your turn" : "Thinking…"}</div>`;
     plate.innerHTML =
-      `<div class="name">${escapeHtml(seat.name)}${badge}</div><div class="stack">${seat.stack.toLocaleString()}</div>${status}` +
+      `<div class="avatar" style="--av:${avatarTone(seat.name)}">${escapeHtml(display.trim()[0]?.toUpperCase() ?? "?")}</div>` +
+      `<div class="info"><div class="name"><span class="nm">${escapeHtml(display)}</span>${badge}</div><div class="stack">${seat.stack.toLocaleString()}</div>${status}</div>` +
       (h && h.button === i ? `<div class="dealer">D</div>` : "");
 
     el.replaceChildren(hole, plate);
@@ -493,7 +502,9 @@ function renderActions(s) {
       slider.value = L.minRaiseTo;
       $("raise-amount").value = L.minRaiseTo;
     }
-    $("btn-raise").textContent = +$("raise-amount").value >= L.maxRaiseTo ? "All in" : `Raise to ${(+$("raise-amount").value).toLocaleString()}`;
+    const v = +$("raise-amount").value;
+    $("btn-raise").textContent = v >= L.maxRaiseTo ? "All in" : `Raise to ${v.toLocaleString()}`;
+    slider.style.setProperty("--fill", `${((v - L.minRaiseTo) / Math.max(1, L.maxRaiseTo - L.minRaiseTo)) * 100}%`);
   }
 
   // turn timer
@@ -508,11 +519,35 @@ function renderFair(h) {
   const body = $("fair-body");
   if (!h) return;
   const v = app.verified[h.no];
+  const chip = $("fair-btn");
+  chip.dataset.state = !h.result ? "locked" : v === true ? "ok" : v === false ? "bad" : "locked";
+  chip.querySelector("use").setAttribute("href", !h.result || v === "checking" ? "#i-lock" : "#i-shield");
+  $("fair-chip-text").textContent = !h.result ? "Deck locked" : v === true ? "Verified" : v === false ? "Check failed" : "Checking";
   const short = `<code>${h.commit.slice(0, 16)}…</code>`;
   if (!h.result) body.innerHTML = `Hand #${h.no} deck locked before dealing.<br/>Fingerprint ${short}`;
   else if (v === true) body.innerHTML = `Hand #${h.no}: <span class="ok">✔ Shuffle verified</span><br/>Every card you saw matches fingerprint ${short}, which was published before the deal. Folded hands stay private.`;
   else if (v === false) body.innerHTML = `Hand #${h.no}: <span class="bad">✖ Verification failed</span><br/>Fingerprint ${short}`;
   else body.innerHTML = `Hand #${h.no}: checking shuffle…`;
+}
+
+// Deep jewel tones for monogram avatars, picked from the name so each player keeps their colour
+const TONES = ["#7a2e3a", "#2e5a4a", "#2f3f6e", "#6b4a2a", "#4a3566", "#2f5f6a", "#5a5a2e", "#6a2f52"];
+function avatarTone(name) {
+  let h = 0;
+  for (const ch of String(name)) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return TONES[h % TONES.length];
+}
+
+/** Welcome screens: a fanned hand of the real cards in the player's chosen deck. */
+function fanCards() {
+  for (const art of document.querySelectorAll(".hero-art")) {
+    if (art.children.length) continue;
+    ["As", "Kh", "Qd", "Jc", "Ts"].forEach((c, i) => {
+      const el = cardEl(c);
+      el.style.transform = `rotate(${(i - 2) * 11}deg)`;
+      art.append(el);
+    });
+  }
 }
 
 function escapeHtml(t) {
@@ -586,12 +621,13 @@ function showroom(demo) {
     <label>Chips<select data-k="chips">${opts(CHIP_SETS, app.chips, Object.fromEntries(CHIP_SETS.map((k) => [k, FX.CHIP_STYLES[k].name])))}</select></label>
     <label>Celebration<select data-k="celebration">${opts(FX.CELEBRATIONS, app.celebration, { chipshower: "Chip Shower", goldrush: "Gold Rush" })}</select></label>
     <div class="row"><button class="primary" data-act="replay">Replay hand</button><button class="neutral" data-act="celebrate">Celebrate</button></div>`;
-  document.body.append(panel);
+  document.querySelector(".topbar").after(panel);
+  document.documentElement.classList.add("has-showroom");
   panel.addEventListener("change", (e) => {
     const k = e.target.dataset.k;
     const v = e.target.value;
     if (k === "room") setRoom(v);
-    if (k === "deck") { setDeck(v); render(); drawPools(app.state, []); }
+    if (k === "deck") { setDeck(v); if (app.state) { render(); drawPools(app.state, []); } }
     if (k === "chips") { setChips(v); if (app.state) drawPools(app.state, []); }
     if (k === "celebration") setCelebration(v);
   });

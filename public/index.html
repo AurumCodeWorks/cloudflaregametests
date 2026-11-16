@@ -6,11 +6,12 @@
   <title>Card Table</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Roboto+Slab:wght@600;700;800&display=swap" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Roboto+Slab:wght@500;600;700;800&display=swap" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="stylesheet" href="/decks.css" />
   <link rel="stylesheet" href="/rooms.css" />
   <link rel="stylesheet" href="/fx.css" />
+  <link rel="stylesheet" href="/shell.css" />
 </head>
 <body>
   <!-- Suit artwork and inks, referenced by every card -->
@@ -62,30 +63,65 @@
       <symbol id="s-c" viewBox="0 0 100 100"><circle cx="50" cy="27" r="19"/><circle cx="27" cy="59" r="19"/><circle cx="73" cy="59" r="19"/><circle cx="50" cy="52" r="11"/><path d="M47 60c0 15-4 26-13 35h32c-9-9-13-20-13-35z"/></symbol>
     </defs>
   </svg>
+  <!-- UI icons -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 2.5 4.5 5.3v6.2c0 4.7 3.2 8.6 7.5 10 4.3-1.4 7.5-5.3 7.5-10V5.3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m8.6 12.2 2.4 2.4 4.6-4.9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><path d="M9 6.5h11M9 12h11M9 17.5h11" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="4.5" cy="6.5" r="1.2" fill="currentColor"/><circle cx="4.5" cy="12" r="1.2" fill="currentColor"/><circle cx="4.5" cy="17.5" r="1.2" fill="currentColor"/></symbol>
+    <symbol id="i-exit" viewBox="0 0 24 24"><path d="M14 4.5h4.5a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H14M10.5 8 6.5 12l4 4M6.8 12H15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
+    <symbol id="i-chip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21M5.6 5.6l2.3 2.3M16.1 16.1l2.3 2.3M18.4 5.6l-2.3 2.3M7.9 16.1l-2.3 2.3" stroke="currentColor" stroke-width="1.6"/></symbol>
+  </svg>
+
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">♠</span> Card Table <span class="tag">play money</span></div>
-    <div class="topbar-right">
-      <div class="wallet" data-testid="wallet" hidden><span class="label">Wallet</span> <strong id="wallet-balance">0</strong></div>
-      <button id="leave-btn" class="ghost" data-testid="leave" hidden>Leave table</button>
+    <div class="brand">
+      <span class="brand-crest"><svg viewBox="0 0 100 100"><use href="#s-s" /></svg></span>
+      <span class="wordmark">Card Table</span>
+      <span class="tag">Play money</span>
     </div>
+    <nav class="topbar-right">
+      <button id="fair-btn" class="fair-chip" data-state="idle" hidden title="Provably fair shuffle">
+        <svg class="ico"><use href="#i-shield" /></svg><span id="fair-chip-text">Fair play</span>
+      </button>
+      <button id="history-btn" class="icon-btn" hidden title="Hand history" aria-label="Hand history"><svg class="ico"><use href="#i-list" /></svg></button>
+      <div class="wallet" data-testid="wallet" hidden>
+        <svg class="ico"><use href="#i-chip" /></svg><span class="label">Balance</span><strong id="wallet-balance">0</strong>
+      </div>
+      <button id="leave-btn" class="quiet-btn" data-testid="leave" hidden><svg class="ico"><use href="#i-exit" /></svg><span>Leave</span></button>
+    </nav>
   </header>
 
   <!-- Login -->
-  <section id="screen-login" class="screen card-panel" hidden>
-    <h1>Texas Hold'em</h1>
-    <p class="muted">No-limit · 5/10 blinds · 4 seats · AI opponents fill empty seats</p>
-    <form id="login-form">
-      <label for="name">Display name</label>
-      <input id="name" name="name" maxlength="16" required autocomplete="off" placeholder="e.g. Sam" data-testid="name" />
-      <button type="submit" class="primary" data-testid="login">Get 1,000 play chips</button>
-    </form>
+  <section id="screen-login" class="screen hero" hidden>
+    <div class="hero-art" aria-hidden="true"></div>
+    <div class="hero-copy">
+      <p class="eyebrow">No-limit Texas Hold'em</p>
+      <h1>Pull up a chair.</h1>
+      <p class="lede">Four seats, proper chips, and a shuffle you can verify yourself. Computer players are always labelled.</p>
+      <form id="login-form" class="field-row">
+        <label for="name" class="sr-only">Display name</label>
+        <input id="name" name="name" maxlength="16" required autocomplete="off" placeholder="Your table name" data-testid="name" />
+        <button type="submit" class="btn btn-gold" data-testid="login">Get 1,000 play chips</button>
+      </form>
+      <p class="fine">Play money only. Nothing to buy to play.</p>
+    </div>
   </section>
 
   <!-- Lobby -->
-  <section id="screen-lobby" class="screen card-panel" hidden>
-    <h1>Welcome, <span id="lobby-name"></span></h1>
-    <p class="muted">Buy-in is 500 chips. You can leave between hands and your stack goes back to your wallet.</p>
-    <button id="play-btn" class="primary big" data-testid="play">Take a seat</button>
+  <section id="screen-lobby" class="screen hero" hidden>
+    <div class="hero-art" aria-hidden="true"></div>
+    <div class="hero-copy">
+      <p class="eyebrow">Welcome back</p>
+      <h1 id="lobby-name"></h1>
+      <div class="table-card">
+        <div>
+          <div class="tc-title">Hold'em · No Limit</div>
+          <div class="tc-meta">Blinds 5/10 · 4 seats · Buy-in 500</div>
+        </div>
+        <button id="play-btn" class="btn btn-gold" data-testid="play">Take a seat</button>
+      </div>
+      <p class="fine">Leave between hands and your stack returns to your balance.</p>
+    </div>
   </section>
 
   <!-- Table -->
@@ -94,16 +130,16 @@
       <div class="felt" id="felt">
         <div class="center">
           <div id="pot-pile" class="pot-stack pot-area"></div>
-          <div class="pot" data-testid="pot">Pot <strong id="pot">0</strong></div>
+          <div class="pot" data-testid="pot"><span class="pot-label">Pot</span><strong id="pot">0</strong></div>
           <div class="board" id="board" data-testid="board"></div>
           <div class="street" id="street"></div>
         </div>
-        <!-- seats are positioned around the felt; index 0 is always "you" at the bottom -->
         <!-- betting circles: chips land and stack here -->
         <div class="zone pos-0 empty" id="zone-0"><div class="zone-chips"></div><div class="zone-amt"></div></div>
         <div class="zone pos-1 empty" id="zone-1"><div class="zone-chips"></div><div class="zone-amt"></div></div>
         <div class="zone pos-2 empty" id="zone-2"><div class="zone-chips"></div><div class="zone-amt"></div></div>
         <div class="zone pos-3 empty" id="zone-3"><div class="zone-chips"></div><div class="zone-amt"></div></div>
+        <!-- seats are positioned around the felt; index 0 is always "you" at the bottom -->
         <div class="seat pos-0" id="seat-0"></div>
         <div class="seat pos-1" id="seat-1"></div>
         <div class="seat pos-2" id="seat-2"></div>
@@ -111,34 +147,40 @@
       </div>
     </div>
 
-    <div class="actions" id="actions" data-testid="actions">
-      <div class="action-status" id="action-status"></div>
-      <div class="timer" id="timer"><div class="timer-fill" id="timer-fill"></div></div>
-      <div class="buttons">
-        <button id="btn-fold" class="danger" data-testid="fold">Fold</button>
-        <button id="btn-check" class="neutral" data-testid="check">Check</button>
-        <button id="btn-call" class="neutral" data-testid="call">Call</button>
-        <div class="raise-group">
-          <div class="presets">
-            <button class="chip-btn" data-preset="half">½ pot</button>
-            <button class="chip-btn" data-preset="pot">Pot</button>
-            <button class="chip-btn" data-preset="max">Max</button>
+    <div class="console" id="actions" data-testid="actions">
+      <div class="console-top">
+        <div class="action-status" id="action-status"></div>
+        <div class="timer" id="timer"><div class="timer-fill" id="timer-fill"></div></div>
+      </div>
+      <div class="console-main">
+        <button id="btn-fold" class="btn btn-quiet" data-testid="fold">Fold</button>
+        <button id="btn-check" class="btn btn-ivory" data-testid="check">Check</button>
+        <button id="btn-call" class="btn btn-ivory" data-testid="call">Call</button>
+        <div class="raise">
+          <div class="presets" role="group" aria-label="Raise presets">
+            <button data-preset="half">½ Pot</button>
+            <button data-preset="pot">Pot</button>
+            <button data-preset="max">All in</button>
           </div>
-          <input type="range" id="raise-slider" />
-          <div class="raise-row">
-            <input type="number" id="raise-amount" data-testid="raise-amount" />
-            <button id="btn-raise" class="primary" data-testid="raise">Raise to</button>
+          <div class="raise-line">
+            <input type="range" id="raise-slider" aria-label="Raise amount" />
+            <label class="amount-box"><span>to</span><input type="number" id="raise-amount" data-testid="raise-amount" /></label>
           </div>
         </div>
+        <button id="btn-raise" class="btn btn-gold" data-testid="raise">Raise</button>
       </div>
     </div>
 
-    <aside class="side">
-      <div class="fair" id="fair" data-testid="fair">
-        <div class="fair-title">Provably fair shuffle</div>
+    <aside class="drawer" id="drawer" aria-label="Table details">
+      <div class="drawer-head"><span>Table details</span><button class="icon-btn" id="drawer-close" aria-label="Close"><svg class="ico"><use href="#i-close" /></svg></button></div>
+      <section class="drawer-sec fair" id="fair" data-testid="fair">
+        <h4><svg class="ico"><use href="#i-shield" /></svg>Provably fair shuffle</h4>
         <div class="fair-body" id="fair-body">Waiting for the first hand…</div>
-      </div>
-      <div class="log" id="log" data-testid="log"></div>
+      </section>
+      <section class="drawer-sec">
+        <h4><svg class="ico"><use href="#i-list" /></svg>Hand history</h4>
+        <div class="log" id="log" data-testid="log"></div>
+      </section>
     </aside>
   </section>
 
