@@ -11,6 +11,18 @@ export const SEAT_COUNT = 4;
 export const RAKE_PERCENT = 5;
 export const RAKE_CAP = 3 * BIG_BLIND;
 
+/**
+ * The house's cut. This is the ONLY way the house earns from a poker hand: a disclosed
+ * percentage of contested pots, capped, and only once a flop is dealt ("no flop, no drop").
+ * The house never plays a hand and never influences the cards.
+ */
+export interface RakeRule {
+  percent: number; // e.g. 5 = 5% of the contested pot
+  cap: number; // maximum chips taken from one hand
+  noFlopNoDrop: boolean;
+}
+export const DEFAULT_RAKE: RakeRule = { percent: RAKE_PERCENT, cap: RAKE_CAP, noFlopNoDrop: true };
+
 export type Street = "preflop" | "flop" | "turn" | "river" | "showdown";
 
 export interface Seat {
@@ -79,6 +91,7 @@ export interface TableState {
   button: number;
   handNo: number;
   hand: Hand | null;
+  rake?: RakeRule; // per-table house cut (defaults to DEFAULT_RAKE); 0% for tournaments, whose fee is taken at entry
 }
 
 export type ActionType = "fold" | "check" | "call" | "raise" | "allin";
@@ -361,7 +374,9 @@ function finish(t: TableState, endedBy: "fold" | "showdown"): void {
 
   // Rake: 5% of contested chips, capped, and only if a flop was dealt ("no flop, no drop")
   const contested = pots.filter((p) => p.contributors >= 2).reduce((a, p) => a + p.amount, 0);
-  let rake = h.board.length >= 3 ? Math.min(Math.floor((contested * RAKE_PERCENT) / 100), RAKE_CAP) : 0;
+  const rule = t.rake ?? DEFAULT_RAKE;
+  const flopSeen = h.board.length >= 3 || !rule.noFlopNoDrop;
+  let rake = flopSeen ? Math.min(Math.floor((contested * rule.percent) / 100), rule.cap) : 0;
   let rakeLeft = rake;
 
   const scores: Record<number, number> = {};

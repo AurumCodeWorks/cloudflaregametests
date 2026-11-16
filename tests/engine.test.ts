@@ -6,6 +6,7 @@ import {
 } from "../src/holdem.ts";
 import type { TableState } from "../src/holdem.ts";
 import { decide } from "../src/bot.ts";
+import { STAKES, TOURNAMENT_RAKE, disclose } from "../src/stakes.ts";
 
 let passed = 0;
 function test(name: string, fn: () => void | Promise<void>) {
@@ -98,6 +99,30 @@ await test("no flop, no rake: preflop fold takes nothing", () => {
   act(t, t.hand!.toAct, { type: "fold" });
   assert.equal(t.hand!.result!.rake, 0);
   assert.equal(t.seats[0]!.stack + t.seats[1]!.stack, 1000);
+});
+
+await test("house cut follows the table's stake rule; tournaments take none; cards unaffected", () => {
+  const run = (rake?: { percent: number; cap: number; noFlopNoDrop: boolean }) => {
+    const t = newTable();
+    if (rake) t.rake = rake;
+    t.seats[0] = newSeat("a", "A", false, 500, "r");
+    t.seats[1] = newSeat("b", "B", false, 500, "r");
+    const deck = freshDeck(); // same fixed deck for every run: rake rules must never change the cards
+    startHand(t, deck, [], "c");
+    act(t, t.hand!.toAct, { type: "allin" });
+    act(t, t.hand!.toAct, { type: "call" });
+    return { rake: t.hand!.result!.rake, board: t.hand!.board.join(), stacks: t.seats.map((s) => s?.stack) };
+  };
+  const base = run();
+  assert.equal(base.rake, 30); // default: 5% of 1000 = 50, capped at 30
+  assert.equal(run({ percent: 5, cap: 1000, noFlopNoDrop: true }).rake, 50);
+  assert.equal(run(TOURNAMENT_RAKE).rake, 0);
+  assert.equal(run(TOURNAMENT_RAKE).board, base.board);
+  for (const tier of STAKES) {
+    assert.ok(tier.sitAndGo.feePence / tier.sitAndGo.buyInPence <= 0.1, `${tier.id} fee above 10%`);
+    assert.equal(tier.sitAndGo.payouts.reduce((a, b) => a + b, 0), 100);
+    assert.match(disclose(tier).sitAndGo, /goes to the prize pool/);
+  }
 });
 
 await test("3,000 random hands: chips conserved, stacks never negative, every hand replays identically", () => {
