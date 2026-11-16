@@ -21,6 +21,16 @@ function setDeck(name) {
   try { localStorage.setItem("deck", name); } catch {}
 }
 app.setDeck = setDeck;
+
+// Room theme: ?room=riviera, or the player's saved choice
+const ROOMS = ["classic", "midnight", "vegas", "riviera", "speakeasy", "penthouse"];
+function setRoom(name) {
+  if (!ROOMS.includes(name)) name = "classic";
+  document.documentElement.dataset.room = name;
+  try { localStorage.setItem("room", name); } catch {}
+}
+app.setRoom = setRoom;
+setRoom(new URLSearchParams(location.search).get("room") || (() => { try { return localStorage.getItem("room"); } catch { return null; } })() || "classic");
 setDeck(new URLSearchParams(location.search).get("deck") || (() => { try { return localStorage.getItem("deck"); } catch { return null; } })() || "ivory");
 
 // ---------------------------------------------------------------- screens

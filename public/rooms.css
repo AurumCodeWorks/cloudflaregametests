@@ -1,0 +1,79 @@
+/* Room themes: background, felt, rail material, pinstripe and chips.
+   Tier 1 Classic (base) · 2 Midnight · 3 Vegas · 4 Riviera · 5 Speakeasy · 6 Penthouse (flagship) */
+
+/* 2 Midnight: navy felt, charcoal leather */
+[data-room="midnight"] {
+  --room-bg: radial-gradient(1200px 700px at 50% -10%, #1a2a4a 0%, #070b16 65%);
+  --felt: radial-gradient(ellipse at center, #2456a6 0%, #10295a 78%);
+  --rail: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.14), transparent 55%), linear-gradient(180deg, #2b2f38 0%, #14161b 55%, #23262e 100%);
+  --rail-edge: #0a0b0e;
+  --pin: rgba(200, 215, 240, .32);
+  --chip-a: #2f62d8;
+  --chip-b: #e8eefc;
+}
+
+/* 3 Vegas: crimson felt, black leather with gold stitching */
+[data-room="vegas"] {
+  --room-bg: radial-gradient(1100px 650px at 50% -10%, #3d0e16 0%, #100507 65%);
+  --felt: radial-gradient(ellipse at center, #b3233a 0%, #5e0d1b 78%);
+  --rail: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.12), transparent 55%), linear-gradient(180deg, #2a2a2a 0%, #0d0d0d 60%, #1c1c1c 100%);
+  --rail-edge: #000;
+  --pin: rgba(233, 196, 106, .8);
+  --pin-style: dashed;
+  --chip-a: #111;
+  --chip-b: #e9c46a;
+}
+
+/* 4 Riviera: teal felt, cream leather, Mediterranean dusk */
+[data-room="riviera"] {
+  --room-bg: radial-gradient(900px 420px at 82% -5%, rgba(255,150,90,.28), transparent 65%), linear-gradient(180deg, #0f2f3a 0%, #2a1b3d 55%, #120d1c 100%);
+  --felt: radial-gradient(ellipse at center, #19938f 0%, #0a4e52 78%);
+  --rail: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.35), transparent 55%), linear-gradient(180deg, #f1e6cf 0%, #d6c39d 55%, #bba57b 100%);
+  --rail-edge: #8a7650;
+  --pin: rgba(201, 162, 74, .7);
+  --chip-a: #0f7c79;
+  --chip-b: #f4ecd8;
+}
+
+/* 5 Speakeasy: bottle-green felt, mahogany rail, brass, lamp light */
+[data-room="speakeasy"] {
+  --room-bg: radial-gradient(800px 480px at 50% 0%, rgba(255,170,70,.24), transparent 70%), radial-gradient(1200px 700px at 50% -10%, #241a12 0%, #0b0806 65%);
+  --felt: radial-gradient(ellipse at 50% 35%, #357a48 0%, #163a22 78%);
+  --rail: repeating-linear-gradient(90deg, rgba(0,0,0,.13) 0 2px, transparent 2px 9px, rgba(255,200,150,.05) 9px 10px, transparent 10px 17px), linear-gradient(180deg, #8a4522 0%, #4a200e 60%, #6a3016 100%);
+  --rail-edge: #2a1206;
+  --pin: rgba(214, 170, 90, .6);
+  --chip-a: #b08a3e;
+  --chip-b: #1a1a1a;
+}
+
+/* 6 Penthouse (flagship): black gold-latticed felt, white marble rail, gold inlay, city lights */
+[data-room="penthouse"] {
+  --room-bg:
+    radial-gradient(circle at 12% 28%, rgba(242,201,110,.22), transparent 5%),
+    radial-gradient(circle at 18% 70%, rgba(120,170,255,.14), transparent 6%),
+    radial-gradient(circle at 86% 18%, rgba(120,170,255,.2), transparent 6%),
+    radial-gradient(circle at 74% 78%, rgba(242,201,110,.14), transparent 7%),
+    radial-gradient(circle at 92% 55%, rgba(242,201,110,.12), transparent 5%),
+    radial-gradient(circle at 40% 8%, rgba(255,255,255,.08), transparent 9%),
+    radial-gradient(1200px 700px at 50% 120%, rgba(242,201,110,.08), transparent 60%),
+    linear-gradient(180deg, #0b0d14 0%, #050507 100%);
+  --felt:
+    repeating-linear-gradient(45deg, rgba(217,182,94,.07) 0 1px, transparent 1px 22px),
+    repeating-linear-gradient(-45deg, rgba(217,182,94,.07) 0 1px, transparent 1px 22px),
+    radial-gradient(ellipse at center, #2a2a30 0%, #0c0c0e 78%);
+  --rail:
+    linear-gradient(115deg, transparent 40%, rgba(140,140,150,.35) 41%, transparent 43%),
+    linear-gradient(62deg, transparent 60%, rgba(140,140,150,.28) 61%, transparent 62.5%),
+    linear-gradient(160deg, transparent 20%, rgba(170,170,180,.3) 21%, transparent 22.5%),
+    linear-gradient(20deg, transparent 75%, rgba(170,170,180,.22) 76%, transparent 77%),
+    radial-gradient(ellipse at 50% 0%, rgba(255,255,255,.6), transparent 55%),
+    linear-gradient(180deg, #f7f6f2 0%, #dcdad3 100%);
+  --rail-edge: #c9a24a;
+  --pin: rgba(233, 196, 106, .85);
+  --pin-glow: 0 0 10px rgba(233, 196, 106, .35), inset 0 0 10px rgba(233, 196, 106, .2);
+  --chip-a: #111;
+  --chip-b: #e9c46a;
+}
+[data-room="penthouse"] .felt::before { animation: inlay 6s ease-in-out infinite; }
+@keyframes inlay { 0%, 100% { opacity: .75; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { [data-room="penthouse"] .felt::before { animation: none; } }
