@@ -85,7 +85,17 @@ async function refreshMe() {
   app.user = await api("/api/me");
   $("wallet-balance").textContent = app.user.balance.toLocaleString();
   $("lobby-name").textContent = app.user.name;
+  $("daily").hidden = app.user.balance >= 500;
 }
+$("daily-btn").addEventListener("click", async () => {
+  try {
+    await api("/api/daily", { method: "POST" });
+    await refreshMe();
+    toast("1,000 chips added. Good luck!");
+  } catch (err) {
+    toast(err.message);
+  }
+});
 
 $("login-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -127,8 +137,11 @@ function connect(tableId) {
     if (msg.type === "state") onState(msg);
     else if (msg.type === "error") toast(msg.message);
     else if (msg.type === "stood") {
-      toast(`You left the table with ${msg.amount.toLocaleString()} chips`);
-      app.leftTable = true;
+      // Back to the lobby straight away; don't wait for the socket's closing handshake
+      toast(msg.amount > 0 ? `You left the table with ${msg.amount.toLocaleString()} chips` : "You're out of chips. Claim your daily chips to play again.");
+      app.ws = null;
+      ws.close();
+      refreshMe().catch(() => {}).finally(() => show("lobby"));
     }
   };
   ws.onclose = async () => {
@@ -203,6 +216,8 @@ app.cardEl = cardEl;
 function onState(s) {
   const old = app.state;
   app.state = s;
+  // Your buy-in just moved from your balance to the table: refresh the header balance
+  if (!app.demo && (old?.you?.seat ?? -1) < 0 && s.you.seat >= 0) refreshMe().catch(() => {});
   if (s.hand?.reveal) verifyHand(s.hand);
   const before = capture();
   render();
@@ -555,11 +570,14 @@ function escapeHtml(t) {
 }
 
 // ---------------------------------------------------------------- action buttons
-$("btn-fold").onclick = () => send({ type: "action", action: "fold" });
-$("btn-check").onclick = () => send({ type: "action", action: "check" });
-$("btn-call").onclick = () => send({ type: "action", action: "call" });
+// Only send an action while it's actually your turn (a click can land just as the hand ends)
+const myTurn = () => !!app.state?.legal;
+$("btn-fold").onclick = () => myTurn() && send({ type: "action", action: "fold" });
+$("btn-check").onclick = () => myTurn() && send({ type: "action", action: "check" });
+$("btn-call").onclick = () => myTurn() && send({ type: "action", action: "call" });
 $("btn-raise").onclick = () => {
   const L = app.state?.legal;
+  if (!L) return;
   const to = Math.round(+$("raise-amount").value);
   app.raiseTouched = false;
   send(L && to >= L.maxRaiseTo ? { type: "action", action: "allin" } : { type: "action", action: "raise", to });

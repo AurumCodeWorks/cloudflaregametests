@@ -1,0 +1,28 @@
+// Card Table: the multiplayer poker server (free-play / play chips).
+{
+  "name": "cfgt-poker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-01",
+  "build": { "command": "node tools/build-assets.mjs", "watch_dir": "public" },
+  "durable_objects": {
+    "bindings": [
+      { "name": "TABLE", "class_name": "Table" },
+      { "name": "LOBBY", "class_name": "Lobby" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Table", "Lobby"] }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "cfgt-poker-ledger", "database_id": "efc9c088-1c2e-4b30-a3f7-a19bd1af97a8", "migrations_dir": "migrations" }
+  ],
+  "r2_buckets": [{ "binding": "HANDS", "bucket_name": "cfgt-poker-hands" }],
+  "ratelimits": [{ "name": "LOGIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 5, "period": 60 } }],
+  "vars": {
+    "TURN_SECONDS": "20",
+    "BOT_DELAY_MS": "1100",
+    "NEXT_HAND_MS": "5500",
+    "RAKE_PERCENT": "0",
+    "STARTING_CHIPS": "1000",
+    "AUDIT": "0"
+  },
+  "observability": { "enabled": true }
+}

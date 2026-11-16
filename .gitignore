@@ -4,3 +4,4 @@ node_modules/
 tests/out/
 *.log
 .preview/
+src/generated/

@@ -140,6 +140,8 @@ input { font: inherit; color: var(--ink); }
   padding: 18px 18px 18px 22px; border-radius: 16px; background: var(--surface); border: 1px solid var(--hair-2); box-shadow: var(--shadow-lg);
 }
 .tc-title { font: 700 18px/1.2 var(--display); }
+.daily { margin-top: 14px; max-width: 540px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 14px 12px 18px; border-radius: 14px; border: 1px dashed var(--hair-2); color: var(--ink-2); font-size: 14px; }
+.btn-small { height: 40px; padding: 0 16px; font-size: 13px; }
 .tc-meta { margin-top: 5px; font-size: 13px; color: var(--muted); }
 
 /* ----------------------------------------------------------------- table area */
