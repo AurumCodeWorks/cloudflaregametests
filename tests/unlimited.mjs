@@ -40,9 +40,10 @@ ws.onmessage = (e) => {
   if (m.legal && !m.hand?.result) { ws.send(JSON.stringify({ type: "action", action: "allin" })); shoves++; }
 };
 ws.onclose = (e) => { closed = e.code; };
+const started = Date.now();
 const deadline = Date.now() + Number(process.env.TIMEOUT_MS || 240_000);
 while (!rebought && closed === null && Date.now() < deadline) await wait(100);
-console.log(`  (${shoves} shoves, last hand #${latest?.hand?.no ?? "?"})`);
+console.log(`  (${shoves} shoves, last hand #${latest?.hand?.no ?? "?"}, stack ${latest?.seats?.[latest.you.seat]?.stack ?? "-"}, stood ${stood}, socket close code ${closed ?? "open"}, ${Math.round((Date.now() - started) / 1000)}s)`);
 check(busted, "went broke at the table");
 check(rebought, "re-bought automatically after busting");
 check(!stood && closed === null, "stayed seated instead of being sent back to the lobby");
