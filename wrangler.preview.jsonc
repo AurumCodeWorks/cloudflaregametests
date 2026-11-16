@@ -1,0 +1,8 @@
+// Static showroom preview: serves /public only (no server code, no Durable Objects, no database).
+// Static asset requests are free and unlimited on Workers. Deploy: npx wrangler deploy -c wrangler.preview.jsonc
+{
+  "name": "cfgt-poker-preview",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./public" },
+  "workers_dev": true
+}

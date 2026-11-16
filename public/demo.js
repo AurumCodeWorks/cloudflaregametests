@@ -114,7 +114,7 @@ export async function demoSequence() {
       wait,
       state: {
         type: "state", tableId: "t-demo", turnSeconds: 20, wallet: 500, you: { seat: 0, waiting: false },
-        seats: seats.map(({ total, ...s }) => ({ ...s, hole: [...s.hole] })),
+        seats: seats.map((s) => ({ ...s, hole: [...s.hole] })),
         hand: { ...hand, board: [...hand.board], deadline: hand.toAct === 0 ? Date.now() + 20000 + steps.reduce((a, s) => a + s.wait, 0) + wait : null },
         legal, log: log.slice(-10),
       },

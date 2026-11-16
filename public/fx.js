@@ -2,6 +2,29 @@
 // Everything respects prefers-reduced-motion (elements simply appear in place).
 export const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+// Animation pace: 1 = default. Everything below is tuned slower and smoother than a typical web game.
+export const PACE = 1;
+
+/**
+ * Adaptive quality ("GPU helper"): measure real frame times for ~1s. If the device can't hold
+ * ~45fps, or it is a low-power device, switch to a lighter mode (fewer particles, no shimmer).
+ * All movement uses transform/opacity only, which browsers hand to the GPU compositor.
+ */
+export let lowPower = (navigator.hardwareConcurrency || 8) <= 2 || (navigator.deviceMemory || 8) <= 2;
+if (lowPower) document.documentElement.classList.add("low-power");
+(function measure() {
+  let n = 0, t0 = 0, slow = 0, last = 0;
+  const step = (t) => {
+    if (!t0) t0 = last = t;
+    if (t - last > 24) slow++;
+    last = t;
+    if (++n < 60) return requestAnimationFrame(step);
+    if (slow > 20 || (t - t0) / n > 22) { lowPower = true; document.documentElement.classList.add("low-power"); }
+  };
+  requestAnimationFrame(step);
+})();
+const particles = (n) => Math.max(1, Math.round(lowPower ? n * 0.45 : n));
+
 let layer;
 function fxLayer() {
   if (!layer) {
@@ -85,7 +108,7 @@ export const CHIP_STYLES = {
   },
   // Tier 6 (flagship): gold foil. Hot-stamped gold rim, gold inserts and inlay, travelling glint.
   goldfoil: {
-    name: "Gold Foil", inserts: 6, spotDeg: 12, foilRim: true, foilInlay: true, glint: true, mold: true,
+    name: "Gold Foil", inserts: 6, spotDeg: 12, foilRim: true, foilInlay: true, mold: true,
     d: {
       1: { base: "#ece8de", spots: ["gold"], inlay: "#1a1712", text: "gold" },
       5: { base: "#8e1420", spots: ["gold"], inlay: "#1a0a0c", text: "gold" },
@@ -221,38 +244,74 @@ export function chipStack(amount, size = 20, denoms = null) {
   return el;
 }
 
-/** A pot rendered as several stacks side by side. */
-export function chipPile(amount, size = 20) {
+// Geometry of one chip drawn by chipStack (viewBox units: width 104, thickness 9, face ry 27)
+export const chipMetrics = (size) => ({ w: size * 1.04, h: (size * 1.04 * 67) / 104, step: (size * 1.04 * 9) / 104 });
+
+/** One chip as its own element, so a pool can show, hide and land chips individually. */
+export function chipEl(d, size) {
+  const el = chipStack(0, size, [d]);
+  el.classList.add("chip1");
+  return el;
+}
+
+/** Fly one chip (same size the whole way: no morphing), then reveal its landing spot with a small settle. */
+export function landChip(d, size, from, targetEl, delay = 0, { fadeOut = false, to: dest = null } = {}) {
+  if (reduced || !from) { if (targetEl) targetEl.style.visibility = ""; return Promise.resolve(); }
+  const m = chipMetrics(size);
+  const to = targetEl ? targetEl.getBoundingClientRect() : dest ? new DOMRect(center(dest).x - m.w / 2, center(dest).y - m.h / 2, m.w, m.h) : null;
+  const start = new DOMRect(center(from).x - m.w / 2, center(from).y - m.h / 2, m.w, m.h);
+  const end = to ?? start;
+  return fly(chipEl(d, size), start, end, { duration: 700, delay, lift: 34, fade: fadeOut }).then(() => {
+    if (!targetEl) return;
+    targetEl.style.visibility = "";
+    targetEl.animate([{ transform: "translate3d(0,-4px,0)" }, { transform: "translate3d(0,0,0)" }], { duration: 160, easing: "ease-out" });
+  });
+}
+
+/**
+ * Chips grouped the way a dealer stacks them: one value per stack, highest value first,
+ * at most 6 chips per stack, stacks spaced apart so they never touch.
+ */
+export function chipGroup(amount, size = 24, maxStacks = 4) {
   const wrap = document.createElement("div");
-  wrap.className = "pot-stack";
-  let rest = amount;
-  for (let i = 0; i < 4 && rest > 0; i++) {
-    const part = i === 3 ? rest : Math.max(1, Math.ceil(rest / (4 - i)));
-    wrap.append(chipStack(part, size));
-    rest -= part;
+  wrap.className = "chip-group";
+  wrap.style.gap = `${Math.round(size * 0.18)}px`;
+  let a = amount;
+  const stacks = [];
+  for (const d of DENOMS) {
+    let n = Math.floor(a / d);
+    a -= n * d;
+    while (n > 0 && stacks.length < maxStacks) {
+      const take = Math.min(n, 6);
+      stacks.push(Array(take).fill(d));
+      n -= take;
+    }
   }
+  for (const st of stacks) wrap.append(chipStack(0, size, st));
   return wrap;
 }
+/** Back-compat alias used by the pot display. */
+export const chipPile = (amount, size = 24) => chipGroup(amount, size, 5);
 
 // ------------------------------------------------------------------ flights
 /** Fly `el` from one rect to another (arc), then remove it. */
-export async function fly(el, from, to, { duration = 450, delay = 0, lift = 40, endScale = 1, fade = false, hold = false } = {}) {
+export async function fly(el, from, to, { duration = 650, delay = 0, lift = 40, endScale = 1, fade = false, hold = false, fadeIn = false } = {}) {
   if (reduced) return;
   // Unless asked to "hold" (wait visibly at the start, like a deck pile), appear only when the flight begins
   if (delay && !hold) { await wait(delay); delay = 0; }
   const L = fxLayer();
-  Object.assign(el.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, margin: 0 });
+  Object.assign(el.style, { left: `${from.left}px`, top: `${from.top}px`, width: `${from.width}px`, height: `${from.height}px`, margin: 0, willChange: "transform, opacity" });
   L.append(el);
   const a = center(from), b = center(to);
   const dx = b.x - a.x, dy = b.y - a.y;
   const s = to.width / from.width || 1;
   const anim = el.animate(
     [
-      { transform: "translate(0,0) scale(1)", opacity: 1 },
-      { transform: `translate(${dx / 2}px, ${dy / 2 - lift}px) scale(${(1 + s * endScale) / 2})`, opacity: 1, offset: 0.5 },
-      { transform: `translate(${dx}px, ${dy}px) scale(${s * endScale})`, opacity: fade ? 0 : 1 },
+      { transform: "translate3d(0,0,0) scale(1)", opacity: fadeIn ? 0 : 1 },
+      { transform: `translate3d(${dx / 2}px, ${dy / 2 - lift}px, 0) scale(${(1 + s * endScale) / 2})`, opacity: 1, offset: 0.5 },
+      { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${s * endScale})`, opacity: fade ? 0 : 1 },
     ],
-    { duration, delay, easing: "cubic-bezier(.3,.7,.3,1)", fill: "both" },
+    { duration: duration * PACE, delay, easing: "cubic-bezier(.35,.1,.25,1)", fill: "both" },
   );
   return anim.finished.then(() => el.remove(), () => el.remove());
 }
@@ -265,7 +324,7 @@ export function deal(targets, deckRect, makeBack) {
     const back = makeBack();
     const to = el.getBoundingClientRect();
     const from = new DOMRect(center(deckRect).x - to.width / 2, center(deckRect).y - to.height / 2, to.width, to.height);
-    fly(back, from, to, { duration: 380, delay: i * 85, lift: 18, hold: true }).then(() => (el.style.opacity = ""));
+    fly(back, from, to, { duration: 560, delay: i * 150, lift: 22, hold: true }).then(() => (el.style.opacity = ""));
   });
 }
 
@@ -278,15 +337,15 @@ export async function flipIn(el, makeBack, delay = 0) {
   const back = makeBack();
   Object.assign(back.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, margin: 0 });
   fxLayer().append(back);
-  await back.animate([{ transform: "perspective(700px) rotateY(0)" }, { transform: "perspective(700px) rotateY(90deg)" }], { duration: 170, easing: "ease-in", fill: "both" }).finished;
+  await back.animate([{ transform: "perspective(700px) rotateY(0)" }, { transform: "perspective(700px) rotateY(90deg)" }], { duration: 260, easing: "ease-in", fill: "both" }).finished;
   back.remove();
   el.style.opacity = "";
-  el.animate([{ transform: "perspective(700px) rotateY(-90deg)" }, { transform: "perspective(700px) rotateY(0)" }], { duration: 190, easing: "ease-out" });
+  el.animate([{ transform: "perspective(700px) rotateY(-90deg)" }, { transform: "perspective(700px) rotateY(0)" }], { duration: 300, easing: "cubic-bezier(.2,.7,.3,1)" });
 }
 
 /** Folded cards slide into the middle and fade. */
 export function muck(rects, toRect, makeBack) {
-  rects.forEach((r, i) => fly(makeBack(), r, new DOMRect(center(toRect).x - r.width / 2, center(toRect).y - r.height / 2, r.width, r.height), { duration: 420, delay: i * 60, lift: 10, endScale: 0.7, fade: true }));
+  rects.forEach((r, i) => fly(makeBack(), r, new DOMRect(center(toRect).x - r.width / 2, center(toRect).y - r.height / 2, r.width, r.height), { duration: 700, delay: i * 90, lift: 12, endScale: 0.7, fade: true }));
 }
 
 export function flyChips(amount, from, to, opts = {}) {
@@ -304,10 +363,10 @@ export function glideFrom(el, oldRect) {
   const r = el.getBoundingClientRect();
   const dx = oldRect.left - r.left, dy = oldRect.top - r.top;
   if (Math.abs(dx) + Math.abs(dy) < 1) return;
-  el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: "translate(0,0)" }], { duration: 650, easing: "cubic-bezier(.3,.7,.3,1)" });
+  el.animate([{ transform: `translate3d(${dx}px, ${dy}px, 0)` }, { transform: "translate3d(0,0,0)" }], { duration: 850, easing: "cubic-bezier(.35,.1,.25,1)" });
 }
 
-export function tick(el, from, to, duration = 450) {
+export function tick(el, from, to, duration = 900) {
   if (reduced || from === to) { el.textContent = to.toLocaleString(); return; }
   const t0 = performance.now();
   const step = (t) => {
@@ -319,23 +378,149 @@ export function tick(el, from, to, duration = 450) {
 }
 
 // ------------------------------------------------------------------ particles
-function particleCanvas() {
+// Particles are simulated on the CPU (cheap: a few hundred points) and drawn on the GPU with WebGL:
+// one buffer upload and two draw calls per frame (normal + additive), every particle a point sprite
+// shaped in the fragment shader. Falls back to Canvas 2D if WebGL is unavailable.
+function makeCanvas() {
   const c = document.createElement("canvas");
-  const dpr = devicePixelRatio || 1;
+  const dpr = Math.min(devicePixelRatio || 1, lowPower ? 1 : 2);
   c.width = innerWidth * dpr;
   c.height = innerHeight * dpr;
   c.style.width = `${innerWidth}px`;
   c.style.height = `${innerHeight}px`;
   fxLayer().append(c);
+  return { c, dpr };
+}
+
+const SHAPE = { rect: 0, coin: 1, chip: 2, spark: 3, star: 4 };
+const ADDITIVE = new Set([SHAPE.spark, SHAPE.star]);
+const rgbaCache = new Map();
+function rgba(col) {
+  if (rgbaCache.has(col)) return rgbaCache.get(col);
+  const n = parseInt(col.replace("#", "").padEnd(6, "0").slice(0, 6), 16);
+  const v = [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+  rgbaCache.set(col, v);
+  return v;
+}
+
+const VERT = `
+attribute vec2 a_pos; attribute float a_size; attribute vec4 a_color; attribute vec3 a_rfs;
+uniform vec2 u_res; uniform float u_dpr;
+varying vec4 v_color; varying float v_rot; varying float v_flip; varying float v_shape;
+void main() {
+  vec2 clip = a_pos / u_res * 2.0 - 1.0;
+  gl_Position = vec4(clip.x, -clip.y, 0.0, 1.0);
+  float k = a_rfs.z > 2.5 && a_rfs.z < 3.5 ? 6.0 : 2.4;
+  gl_PointSize = a_size * k * u_dpr;
+  v_color = a_color; v_rot = a_rfs.x; v_flip = a_rfs.y; v_shape = a_rfs.z;
+}`;
+const FRAG = `
+precision mediump float;
+varying vec4 v_color; varying float v_rot; varying float v_flip; varying float v_shape;
+void main() {
+  vec2 p = gl_PointCoord * 2.0 - 1.0;
+  float cr = cos(v_rot), sr = sin(v_rot);
+  p = vec2(cr * p.x - sr * p.y, sr * p.x + cr * p.y);
+  float squash = max(abs(cos(v_flip)), 0.15);
+  vec3 col = v_color.rgb; float a = v_color.a;
+  if (v_shape < 0.5) {                       // confetti ribbon, tumbling
+    p.y /= squash;
+    if (abs(p.x) > 0.95 || abs(p.y) > 0.5) discard;
+    col *= 0.75 + 0.25 * abs(cos(v_flip));
+  } else if (v_shape < 1.5) {                // gold coin spinning on its axis
+    p.x /= squash;
+    float r = length(p); if (r > 0.95) discard;
+    float g = 0.5 + 0.5 * (p.x * 0.6 - p.y * 0.8);
+    col = mix(vec3(0.54, 0.41, 0.17), vec3(1.0, 0.95, 0.72), smoothstep(0.1, 0.75, g));
+    col *= 1.0 - 0.25 * smoothstep(0.6, 0.7, r) * (1.0 - smoothstep(0.7, 0.8, r));
+    a *= 1.0 - smoothstep(0.85, 0.95, r);
+  } else if (v_shape < 2.5) {                // casino chip with edge spots
+    p.y /= squash;
+    float r = length(p); if (r > 0.95) discard;
+    float ang = atan(p.y, p.x) / 6.2831853;
+    if (r > 0.68 && fract(ang * 8.0) < 0.35) col = vec3(0.96, 0.94, 0.89);
+    if (r < 0.5) col = mix(vec3(0.98, 0.97, 0.94), col, 0.15);
+    a *= 1.0 - smoothstep(0.85, 0.95, r);
+  } else if (v_shape < 3.5) {                // glowing spark
+    float r = length(p);
+    a *= exp(-r * r * 5.0);
+  } else {                                   // four-point twinkle
+    float s = max(exp(-abs(p.x) * 14.0) * exp(-abs(p.y) * 1.8), exp(-abs(p.y) * 14.0) * exp(-abs(p.x) * 1.8));
+    a *= s + exp(-dot(p, p) * 9.0) * 0.6;
+  }
+  gl_FragColor = vec4(col * a, a);           // premultiplied
+}`;
+
+function makeGL(c, dpr) {
+  const gl = c.getContext("webgl", { premultipliedAlpha: true, antialias: false, alpha: true, powerPreference: "high-performance" });
+  if (!gl) return null;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; };
+  const vs = sh(gl.VERTEX_SHADER, VERT), fs = sh(gl.FRAGMENT_SHADER, FRAG);
+  if (!vs || !fs) return null;
+  const prog = gl.createProgram();
+  gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+  if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+  gl.useProgram(prog);
+  const buf = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+  const STRIDE = 10 * 4; // x y size r g b a rot flip shape
+  const attr = (name, n, off) => { const loc = gl.getAttribLocation(prog, name); gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, STRIDE, off * 4); };
+  attr("a_pos", 2, 0); attr("a_size", 1, 2); attr("a_color", 4, 3); attr("a_rfs", 3, 7);
+  gl.uniform2f(gl.getUniformLocation(prog, "u_res"), innerWidth, innerHeight);
+  gl.uniform1f(gl.getUniformLocation(prog, "u_dpr"), dpr);
+  gl.viewport(0, 0, c.width, c.height);
+  gl.enable(gl.BLEND);
+  let data = new Float32Array(4096 * 10);
+  return {
+    type: "webgl",
+    draw(ps) {
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      // pack: normal particles first, then additive ones (sparks/stars + their trails)
+      const pts = [];
+      for (const p of ps) {
+        const life = Math.max(0, 1 - p.age / p.life);
+        const shape = SHAPE[p.shape];
+        const [r, g, b] = rgba(p.color ?? "#ffffff");
+        if (p.trail) p.trail.forEach((t, k) => pts.push([t[0], t[1], p.size * (0.5 + k * 0.1), r, g, b, life * (k + 1) * 0.12, 0, 0, shape]));
+        pts.push([p.x, p.y, p.size, r, g, b, life, p.rot ?? 0, p.flip ?? 0, shape]);
+      }
+      pts.sort((a, b) => (ADDITIVE.has(a[9]) ? 1 : 0) - (ADDITIVE.has(b[9]) ? 1 : 0));
+      if (pts.length * 10 > data.length) data = new Float32Array(pts.length * 20);
+      pts.forEach((q, i) => data.set(q, i * 10));
+      const firstAdd = pts.findIndex((q) => ADDITIVE.has(q[9]));
+      const nNormal = firstAdd < 0 ? pts.length : firstAdd;
+      gl.bufferData(gl.ARRAY_BUFFER, data.subarray(0, pts.length * 10), gl.DYNAMIC_DRAW);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      if (nNormal) gl.drawArrays(gl.POINTS, 0, nNormal);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      if (pts.length > nNormal) gl.drawArrays(gl.POINTS, nNormal, pts.length - nNormal);
+    },
+    dispose() { gl.getExtension("WEBGL_lose_context")?.loseContext(); },
+  };
+}
+
+function make2D(c, dpr) {
   const ctx = c.getContext("2d");
   ctx.scale(dpr, dpr);
-  return { c, ctx };
+  return {
+    type: "canvas2d",
+    draw(ps) {
+      ctx.clearRect(0, 0, innerWidth, innerHeight);
+      for (const p of ps) {
+        if (p.trail) for (const t of p.trail) draw2D(ctx, { ...p, x: t[0], y: t[1], age: p.age + p.life * 0.5 });
+        draw2D(ctx, p);
+      }
+    },
+    dispose() {},
+  };
 }
+export let renderer = "pending"; // "webgl" or "canvas2d", for diagnostics
 
 const GOLD = ["#fff1b8", "#f2c14e", "#d9b65e", "#b8913c"];
 const CONFETTI = ["#f2c14e", "#e53935", "#2ecc71", "#3b82f6", "#b26bff", "#ffffff", "#ff8a3d"];
 
-function draw(ctx, p) {
+function draw2D(ctx, p) {
   ctx.save();
   ctx.translate(p.x, p.y);
   ctx.rotate(p.rot);
@@ -377,38 +562,35 @@ function draw(ctx, p) {
 
 /** Run a particle simulation. spawn(t) may return new particles each frame. */
 function runParticles({ duration, spawn, trails = false }) {
-  const { c, ctx } = particleCanvas();
+  const { c, dpr } = makeCanvas();
+  const r = makeGL(c, dpr) ?? make2D(c, dpr);
+  renderer = r.type;
   const ps = [];
   const t0 = performance.now();
   let last = t0;
   return new Promise((resolve) => {
     const frame = (now) => {
-      const dt = Math.min(40, now - last);
+      const dt = Math.min(34, now - last);
       last = now;
       const t = now - t0;
       if (t < duration) ps.push(...(spawn(t, dt) ?? []));
-      if (trails) {
-        ctx.globalCompositeOperation = "destination-out";
-        ctx.fillStyle = "rgba(0,0,0,.22)";
-        ctx.fillRect(0, 0, innerWidth, innerHeight);
-        ctx.globalCompositeOperation = "source-over";
-      } else ctx.clearRect(0, 0, innerWidth, innerHeight);
       for (let i = ps.length - 1; i >= 0; i--) {
         const p = ps[i];
         p.age += dt;
+        if (trails && p.shape === "spark") { (p.trail ??= []).push([p.x, p.y]); if (p.trail.length > 6) p.trail.shift(); }
         p.vy += (p.g ?? 0.0012) * dt;
         p.vx *= p.drag ?? 1;
         p.vy *= p.drag ?? 1;
         p.x += p.vx * dt;
         p.y += p.vy * dt;
-        p.rot += (p.vr ?? 0) * dt;
+        p.rot = (p.rot ?? 0) + (p.vr ?? 0) * dt;
         p.flip = (p.flip ?? 0) + (p.vf ?? 0) * dt;
         if (p.burst && p.age >= p.burstAt) { ps.splice(i, 1); ps.push(...p.burst(p)); continue; }
-        if (p.age >= p.life) { ps.splice(i, 1); continue; }
-        draw(ctx, p);
+        if (p.age >= p.life) ps.splice(i, 1);
       }
+      r.draw(ps.filter((p) => p.age >= 0));
       if (t < duration || ps.length) requestAnimationFrame(frame);
-      else { c.remove(); resolve(); }
+      else { r.dispose(); c.remove(); resolve(); }
     };
     requestAnimationFrame(frame);
   });
@@ -452,7 +634,7 @@ export async function celebrate(style, plateEl, amount, { chipColors = ["#c62828
   if (style === "chipshower") {
     return runParticles({
       duration: 700,
-      spawn: (t) => t < 700 ? Array.from({ length: 3 }, () => ({
+      spawn: (t) => t < 700 ? Array.from({ length: particles(3) }, () => ({
         shape: "chip", x: x + rand(-30, 30), y: r.top, vx: rand(-0.35, 0.35), vy: rand(-0.95, -0.6), g: 0.0022,
         size: rand(7, 10), color: chipColors[(Math.random() * chipColors.length) | 0], rot: 0, vr: rand(-0.01, 0.01), vf: rand(0.01, 0.03), age: 0, life: 2200,
       })) : [],
@@ -460,7 +642,7 @@ export async function celebrate(style, plateEl, amount, { chipColors = ["#c62828
   }
 
   if (style === "confetti") {
-    const burst = (sx, dir) => Array.from({ length: 70 }, () => ({
+    const burst = (sx, dir) => Array.from({ length: particles(70) }, () => ({
       shape: "rect", x: sx, y: y, vx: dir * rand(0.25, 0.9), vy: rand(-1.1, -0.45), g: 0.0016, drag: 0.992,
       size: rand(7, 12), color: CONFETTI[(Math.random() * CONFETTI.length) | 0], rot: rand(0, 6), vr: rand(-0.02, 0.02), vf: rand(0.01, 0.04), age: 0, life: 2600,
     }));
@@ -471,7 +653,8 @@ export async function celebrate(style, plateEl, amount, { chipColors = ["#c62828
   if (style === "spotlight") {
     const spot = overlay("fx-spot", { "--x": `${x}px`, "--y": `${y}px` });
     spot.animate([{ opacity: 0 }, { opacity: 1, offset: 0.15 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: 2800, fill: "both" }).finished.then(() => spot.remove());
-    const label = overlay("fx-label", { left: `${x}px`, top: `${r.top - 128}px` });
+    const holeTop = plateEl.parentElement?.querySelector(".hole")?.getBoundingClientRect().top ?? r.top - 80;
+    const label = overlay("fx-label", { left: `${x}px`, top: `${holeTop - 20}px` });
     label.textContent = "WINNER";
     label.animate([{ opacity: 0, letterSpacing: ".6em" }, { opacity: 1, letterSpacing: ".2em", offset: 0.2 }, { opacity: 1, offset: 0.8 }, { opacity: 0 }], { duration: 2800, fill: "both" }).finished.then(() => label.remove());
     return runParticles({
@@ -485,8 +668,9 @@ export async function celebrate(style, plateEl, amount, { chipColors = ["#c62828
       shape: "spark", x: bx, y: innerHeight * 0.85, vx: rand(-0.05, 0.05), vy: -0.75, g: 0.0006, size: 2.4, color: "#ffe9b0", rot: 0, age: -delay, life: 99999, burstAt: 650,
       burst: (p) => {
         const col = CONFETTI[(Math.random() * 6) | 0];
-        return Array.from({ length: 70 }, (_, i) => {
-          const a = (i / 70) * Math.PI * 2, sp = rand(0.12, 0.32);
+        const count = particles(70);
+        return Array.from({ length: count }, (_, i) => {
+          const a = (i / count) * Math.PI * 2, sp = rand(0.12, 0.32);
           return { shape: "spark", x: p.x, y: p.y, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp, g: 0.00025, drag: 0.985, size: 2, color: col, rot: 0, age: 0, life: 1300 };
         });
       },
@@ -516,7 +700,7 @@ export async function celebrate(style, plateEl, amount, { chipColors = ["#c62828
     return runParticles({
       duration: 1800,
       spawn: (t, dt) => [
-        ...Array.from({ length: Math.round(dt / 8) }, () => ({ shape: "coin", x: x + rand(-20, 20), y: r.top, vx: rand(-0.4, 0.4), vy: rand(-1.15, -0.75), g: 0.0024, size: rand(6, 9), rot: 0, vf: rand(0.008, 0.02), age: 0, life: 2300 })),
+        ...Array.from({ length: particles(Math.round(dt / 8)) }, () => ({ shape: "coin", x: x + rand(-20, 20), y: r.top, vx: rand(-0.4, 0.4), vy: rand(-1.15, -0.75), g: 0.0024, size: rand(6, 9), rot: 0, vf: rand(0.008, 0.02), age: 0, life: 2300 })),
         ...(Math.random() < dt / 30 ? [{ shape: "star", x: x + rand(-160, 160), y: y + rand(-120, 40), vx: 0, vy: 0, g: 0, size: rand(6, 11), color: GOLD[(Math.random() * 4) | 0], rot: 0, age: 0, life: 800 }] : []),
       ],
     });

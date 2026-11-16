@@ -162,12 +162,14 @@
 }
 [data-deck="ivory"] .card.face::before,
 [data-deck="ivory"] .card.back::before {
-  content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
-  background: linear-gradient(115deg, transparent 38%, rgba(255,233,170,.55) 50%, transparent 62%) no-repeat;
-  background-size: 260% 100%; background-position: 160% 0; mix-blend-mode: screen;
-  animation: foil 7s ease-in-out infinite;
+  /* Foil shimmer: a light band slides across using transform only, so the GPU does the work */
+  content: ""; position: absolute; top: 0; bottom: 0; left: -60%; width: 60%; z-index: 2; pointer-events: none;
+  background: linear-gradient(105deg, transparent 0%, rgba(255,233,170,.5) 50%, transparent 100%);
+  mix-blend-mode: screen; will-change: transform;
+  transform: translate3d(0,0,0); animation: foil 9s cubic-bezier(.45,.05,.35,1) infinite;
 }
-[data-deck="ivory"] .card:nth-child(2n)::before { animation-delay: .35s; }
-[data-deck="ivory"] .card:nth-child(3n)::before { animation-delay: .7s; }
-@keyframes foil { 0%, 72% { background-position: 160% 0; } 100% { background-position: -60% 0; } }
+[data-deck="ivory"] .card:nth-child(2n)::before { animation-delay: .5s; }
+[data-deck="ivory"] .card:nth-child(3n)::before { animation-delay: 1s; }
+@keyframes foil { 0%, 75% { transform: translate3d(0,0,0); } 100% { transform: translate3d(330%,0,0); } }
+.low-power .card::before { display: none !important; }
 @media (prefers-reduced-motion: reduce) { .card::before { animation: none !important; } }

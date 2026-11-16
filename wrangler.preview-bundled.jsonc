@@ -1,0 +1,7 @@
+// Showroom preview with files bundled into the script (see tools/build-preview.mjs).
+{
+  "name": "cfgt-poker-preview",
+  "main": ".preview/worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true
+}

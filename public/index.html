@@ -93,12 +93,17 @@
     <div class="table-wrap">
       <div class="felt" id="felt">
         <div class="center">
-          <div id="pot-pile" class="pot-stack"></div>
+          <div id="pot-pile" class="pot-stack pot-area"></div>
           <div class="pot" data-testid="pot">Pot <strong id="pot">0</strong></div>
           <div class="board" id="board" data-testid="board"></div>
           <div class="street" id="street"></div>
         </div>
         <!-- seats are positioned around the felt; index 0 is always "you" at the bottom -->
+        <!-- betting circles: chips land and stack here -->
+        <div class="zone pos-0 empty" id="zone-0"><div class="zone-chips"></div><div class="zone-amt"></div></div>
+        <div class="zone pos-1 empty" id="zone-1"><div class="zone-chips"></div><div class="zone-amt"></div></div>
+        <div class="zone pos-2 empty" id="zone-2"><div class="zone-chips"></div><div class="zone-amt"></div></div>
+        <div class="zone pos-3 empty" id="zone-3"><div class="zone-chips"></div><div class="zone-amt"></div></div>
         <div class="seat pos-0" id="seat-0"></div>
         <div class="seat pos-1" id="seat-1"></div>
         <div class="seat pos-2" id="seat-2"></div>

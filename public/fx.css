@@ -5,14 +5,19 @@
 /* Bet and pot displays */
 .bet { background: rgba(0,0,0,.45); border-radius: 999px; padding: 4px 12px 4px 6px; align-items: center; display: flex; align-items: flex-end; gap: 7px; font-weight: 600; font-size: 13px; }
 .pot-stack { display: flex; gap: 2px; align-items: flex-end; justify-content: center; }
-#pot-pile { height: 46px; min-width: 120px; margin-bottom: -2px; }
+.chip-group { display: flex; align-items: flex-end; }
+#pot-pile { height: 46px; min-width: 120px; margin-bottom: 4px; display: flex; justify-content: center; align-items: flex-end; }
+@media (max-width: 900px) {
+  #pot-pile { height: 34px; min-width: 0; margin-bottom: 2px; }
+  .bet { padding: 2px 8px 2px 4px; gap: 5px; font-size: 12px; }
+}
 .pot { position: relative; z-index: 61; } /* above the flying-chip layer (#fx is 60) so the pot number is never covered */
 
 /* ============================================================================
    FX layer, turn ring and win celebrations
    ============================================================================ */
-#fx { position: fixed; inset: 0; pointer-events: none; z-index: 60; }
-#fx > * { position: fixed; }
+#fx { position: fixed; inset: 0; pointer-events: none; z-index: 60; contain: strict; }
+#fx > * { position: fixed; will-change: transform, opacity; backface-visibility: hidden; }
 #fx canvas { left: 0; top: 0; }
 
 /* Countdown ring around the active seat */
@@ -26,11 +31,12 @@
 @keyframes ringpulse { 50% { opacity: .35; } }
 
 /* Winner plate pulse (everyone, free) */
-.seat.winner .plate { animation: winpulse 1.2s ease-in-out 2; }
-@keyframes winpulse { 50% { transform: scale(1.06); box-shadow: 0 0 0 4px rgba(46,160,67,.45), 0 0 26px rgba(242,193,78,.6); } }
+.seat.winner .plate { animation: winpulse 1.6s ease-in-out 2; box-shadow: 0 0 0 3px rgba(46,160,67,.4), 0 0 24px rgba(242,193,78,.45); }
+@keyframes winpulse { 50% { transform: scale(1.05); } } /* transform only: composited on the GPU */
 
 .float-win {
-  font: 800 22px/1 Inter, sans-serif; color: #ffe58a; text-shadow: 0 2px 8px rgba(0,0,0,.6), 0 0 14px rgba(242,193,78,.6);
+  font: 800 22px/1 Inter, sans-serif; color: #ffe58a; text-shadow: 0 0 12px rgba(242,193,78,.55);
+  background: rgba(10,12,16,.78); border: 1px solid rgba(242,193,78,.55); border-radius: 999px; padding: 7px 16px;
   transform: translate(-50%, -50%); white-space: nowrap;
 }
 
@@ -54,4 +60,42 @@
 }
 .fx-headline small { display: block; font-size: 28px; margin-top: 6px; }
 .fx-scrim { transform: translate(-50%, -50%); width: 460px; height: 170px; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.6), transparent 70%); }
-.fx-label { transform: translate(-50%, -50%); font: 800 28px Inter, sans-serif; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.7); letter-spacing: .2em; }
+.fx-label { transform: translate(-50%, -50%); font: 800 26px Inter, sans-serif; color: #fff; text-shadow: 0 2px 12px rgba(0,0,0,.9); letter-spacing: .2em; background: rgba(0,0,0,.45); padding: 4px 14px; border-radius: 10px; }
+
+/* ============================================================================
+   Betting circles (one per seat) and the pot area. Chips land and stack inside them.
+   ============================================================================ */
+.zone { position: absolute; width: 86px; height: 86px; transform: translate(-50%, -50%); display: grid; place-items: center; pointer-events: none; }
+.zone::before { content: ""; position: absolute; inset: 6px; border-radius: 50%; border: 1px dashed var(--pin); opacity: .9; }
+.zone-chips { position: relative; display: flex; align-items: flex-end; justify-content: center; gap: 4px; z-index: 1; }
+.zone-amt { position: absolute; top: calc(100% - 6px); left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.5); color: #fff; font: 600 12px Inter, sans-serif; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.zone-amt:empty { display: none; }
+.zone.pos-0 { left: 69%; top: 85%; }
+.zone.pos-1 { left: 19%; top: 56%; }
+.zone.pos-2 { left: 66%; top: 22%; }
+.zone.pos-3 { left: 81%; top: 56%; }
+.zone.empty { display: none; }
+.zone.folded { opacity: .35; }
+.pot-area { position: relative; }
+.pot-area::before { content: ""; position: absolute; left: 50%; top: 50%; width: 170px; height: 60px; transform: translate(-50%, -50%); border-radius: 50%; border: 1px dashed var(--pin); opacity: .55; }
+.stack-col { position: relative; flex: none; }
+.stack-col > .chip1 { position: absolute; left: 0; }
+@media (max-width: 900px) {
+  .zone { width: 58px; height: 58px; }
+  .zone.pos-0 { left: 80%; top: 90%; }
+  .zone.pos-1 { left: 22%; top: 47%; }
+  .zone.pos-2 { left: 76%; top: 12%; }
+  .zone.pos-3 { left: 78%; top: 47%; }
+  .zone-amt { font-size: 11px; }
+  .pot-area::before { width: 120px; height: 44px; }
+}
+
+/* Showroom controls (demo mode only) */
+.showroom { position: fixed; right: 16px; bottom: 16px; z-index: 80; width: 290px; background: rgba(13,17,23,.94); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: grid; gap: 8px; box-shadow: 0 12px 30px rgba(0,0,0,.5); font: 13px Inter, sans-serif; }
+.showroom h3 { margin: 0; font-size: 14px; display: flex; justify-content: space-between; align-items: center; }
+.showroom h3 small { color: var(--muted); font-weight: 400; }
+.showroom label { display: grid; grid-template-columns: 92px 1fr; align-items: center; gap: 8px; color: var(--muted); }
+.showroom select { font: inherit; color: var(--text); background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+.showroom .row { display: flex; gap: 8px; }
+.showroom .row button { flex: 1; padding: 8px 10px; font-size: 13px; font-weight: 600; }
+@media (max-width: 900px) { .showroom { left: 8px; right: 8px; bottom: 8px; width: auto; grid-template-columns: 1fr 1fr; } .showroom h3, .showroom .row { grid-column: 1 / -1; } .showroom label { grid-template-columns: 1fr; gap: 2px; } }

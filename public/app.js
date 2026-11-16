@@ -199,50 +199,150 @@ function onState(s) {
   if (s.hand?.reveal) verifyHand(s.hand);
   const before = capture();
   render();
-  animateDiff(old, s, before);
+  const flights = syncPools(old, s);
+  drawPools(s, flights);
+  animateDiff(old, s, before, flights);
 }
 
 /** Positions of things that may animate away, taken before the table is rebuilt. */
 function capture() {
-  const snap = { holes: {}, bets: {}, dealer: null };
+  const snap = { holes: {}, chips: {}, dealer: null };
   document.querySelectorAll(".seat[data-abs]").forEach((el) => {
-    const i = +el.dataset.abs;
-    snap.holes[i] = [...el.querySelectorAll(".hole .card")].map((c) => c.getBoundingClientRect());
-    const b = el.querySelector(".bet");
-    if (b) snap.bets[i] = b.getBoundingClientRect();
+    snap.holes[+el.dataset.abs] = [...el.querySelectorAll(".hole .card")].map((c) => c.getBoundingClientRect());
   });
+  document.querySelectorAll("[data-chip-id]").forEach((c) => (snap.chips[c.dataset.chipId] = c.getBoundingClientRect()));
   const d = document.querySelector(".dealer");
   if (d) snap.dealer = d.getBoundingClientRect();
   return snap;
 }
 
-function hideUntil(el, promise) {
-  if (!el) return;
-  el.style.visibility = "hidden";
-  promise.then(() => (el.style.visibility = ""));
+// One chip size per device, used everywhere (betting circles, pot, flights), so chips never change size.
+const phone = matchMedia("(max-width: 900px)");
+const chipSize = () => (phone.matches ? 20 : 28);
+
+// ---------------------------------------------------------------- chip pools
+// Each betting circle and the pot hold real chips ({id, d}). Chips keep their id as they move
+// player -> betting circle -> pot -> winner, so they fly to and land on the right stack.
+const pools = { hand: null, bets: {}, pot: [] };
+let nextChipId = 1;
+const newChips = (amount) => FX.chipBreakdown(amount, 999).map((d) => ({ id: nextChipId++, d }));
+const sumChips = (list) => list.reduce((a, c) => a + c.d, 0);
+
+/** Update the chip model from the new state. Returns the flights to animate. */
+function syncPools(old, s) {
+  const h = s.hand;
+  const flights = []; // { chip, from: "plate" | "chip", seat, to: "bet" | "pot" | "win", winner }
+  if (!h) { pools.hand = null; pools.bets = {}; pools.pot = []; return flights; }
+  if (pools.hand !== h.no) { pools.hand = h.no; pools.bets = {}; pools.pot = []; old = null; }
+
+  s.seats.forEach((st, i) => {
+    const pool = (pools.bets[i] ??= []);
+    const os = old?.seats[i];
+    const target = st?.bet ?? 0;
+    // Chips this seat put in since the last state (uses `total` when the server sends it)
+    const added = st && os && st.total !== undefined && os.total !== undefined ? st.total - os.total : Math.max(0, target - sumChips(pool));
+    if (target === 0 && (pool.length || added > 0)) {
+      // Round over: the chips in this seat's betting circle slide into the pot...
+      for (const c of pool) { pools.pot.push(c); flights.push({ chip: c, from: "chip", to: "pot" }); }
+      // ...plus any chips put in by the action that closed the round (e.g. the final call), straight from the seat
+      if (st && os && st.total !== undefined && added > 0)
+        for (const c of newChips(added)) { pools.pot.push(c); flights.push({ chip: c, from: "plate", seat: i, to: "pot" }); }
+      pools.bets[i] = [];
+    } else if (target > sumChips(pool)) {
+      for (const c of newChips(target - sumChips(pool))) { pool.push(c); flights.push({ chip: c, from: "plate", seat: i, to: "bet" }); }
+    } else if (target < sumChips(pool)) {
+      pools.bets[i] = newChips(target); // out of sync (e.g. reconnect): redraw without animation
+    }
+  });
+
+  if (h.result) {
+    // Pot goes to the winner(s): hand chips out until each winner's share is covered
+    const owed = h.result.payouts.map((x) => x);
+    const all = [...pools.pot, ...Object.values(pools.bets).flat()].sort((a, b) => b.d - a.d);
+    for (const c of all) {
+      const w = owed.reduce((best, amt, i) => (amt > (owed[best] ?? -1) ? i : best), -1);
+      if (w >= 0 && owed[w] > 0) { owed[w] -= c.d; flights.push({ chip: c, from: "chip", to: "win", winner: w }); }
+      else flights.push({ chip: c, from: "chip", to: "house" }); // rake
+    }
+    pools.pot = [];
+    pools.bets = {};
+  } else {
+    // Keep the pot model equal to what the server says has been collected
+    const collected = h.pot - s.seats.reduce((a, st) => a + (st?.bet ?? 0), 0);
+    const have = sumChips(pools.pot);
+    if (collected > have) pools.pot.push(...newChips(collected - have));
+    else if (collected < have) pools.pot = newChips(collected);
+  }
+  return flights;
 }
 
-function animateDiff(old, s, before) {
+/** Draw chips grouped by value into stacks (max 8 per stack). Chips about to land are hidden. */
+function drawPool(container, chips, hidden, maxStacks) {
+  const size = chipSize();
+  const m = FX.chipMetrics(size);
+  const byValue = [...chips].sort((a, b) => b.d - a.d || a.id - b.id);
+  const stacks = [];
+  for (const c of byValue) {
+    const last = stacks[stacks.length - 1];
+    if (last && last[0].d === c.d && last.length < 8) last.push(c);
+    else stacks.push([c]);
+  }
+  while (stacks.length > maxStacks) stacks[stacks.length - 2].push(...stacks.pop()); // overflow piles onto the previous stack
+  container.replaceChildren(
+    ...stacks.map((st) => {
+      const col = document.createElement("div");
+      col.className = "stack-col";
+      col.style.width = `${m.w}px`;
+      col.style.height = `${m.h + (st.length - 1) * m.step}px`;
+      st.forEach((c, k) => {
+        const el = FX.chipEl(c.d, size);
+        el.dataset.chipId = c.id;
+        el.style.bottom = `${k * m.step}px`;
+        if (hidden.has(c.id)) el.style.visibility = "hidden";
+        col.append(el);
+      });
+      return col;
+    }),
+  );
+}
+
+function drawPools(s, flights) {
+  const you = s.you.seat;
+  const n = s.seats.length;
+  const rel = (i) => (you >= 0 ? (i - you + n) % n : i);
+  const hidden = new Set(flights.filter((f) => f.to === "bet" || f.to === "pot").map((f) => f.chip.id));
+  for (let k = 0; k < n; k++) $(`zone-${k}`).classList.add("empty");
+  s.seats.forEach((st, i) => {
+    const z = $(`zone-${rel(i)}`);
+    if (!st) return;
+    // Every seated player keeps their betting circle; it dims once they fold
+    z.classList.remove("empty");
+    z.classList.toggle("folded", !!st.folded);
+    drawPool(z.querySelector(".zone-chips"), pools.bets[i] ?? [], hidden, 3);
+    z.querySelector(".zone-amt").textContent = st.bet > 0 ? st.bet.toLocaleString() : "";
+  });
+  drawPool($("pot-pile"), pools.pot, hidden, 6);
+}
+
+function animateDiff(old, s, before, flights) {
   const oh = old?.hand;
   const nh = s.hand;
   if (!nh) return;
   const seatEl = (i) => document.querySelector(`.seat[data-abs="${i}"]`);
   const plateRect = (i) => seatEl(i)?.querySelector(".plate")?.getBoundingClientRect();
-  // Chips going to/from the pot use the pile's slot above the label, never the label itself
-  const pileRect = $("pot-pile").getBoundingClientRect();
-  const potRect = new DOMRect(pileRect.left + pileRect.width / 2 - 16, pileRect.bottom - 34, 32, 32);
   const boardRect = $("board").getBoundingClientRect();
   const back = () => cardEl("??");
   const newHand = !oh || oh.no !== nh.no;
+  const size = chipSize();
+  let dealTime = 0;
 
   if (before.dealer) FX.glideFrom(document.querySelector(".dealer"), before.dealer);
 
   if (newHand) {
     // Deal two rounds, clockwise from the left of the button
-    const n = s.seats.length;
     const order = [];
-    for (let k = 1; k <= n; k++) {
-      const i = (nh.button + k) % n;
+    for (let k = 1; k <= s.seats.length; k++) {
+      const i = (nh.button + k) % s.seats.length;
       if (s.seats[i]?.inHand) order.push(i);
     }
     const targets = [];
@@ -252,49 +352,56 @@ function animateDiff(old, s, before) {
         if (c) targets.push({ el: c });
       }
     FX.deal(targets, boardRect, back);
-    // Blinds slide out after the deal
+    dealTime = targets.length * 150 + 450;
+  } else {
     s.seats.forEach((st, i) => {
-      if (!st?.bet) return;
-      const betEl = seatEl(i).querySelector(".bet");
-      hideUntil(betEl, FX.flyChips(st.bet, plateRect(i), betEl.getBoundingClientRect(), { delay: targets.length * 85 + 250 }));
+      const os = old.seats[i];
+      if (!st || !os) return;
+      if (!os.folded && st.folded && before.holes[i]?.length) FX.muck(before.holes[i], boardRect, back);
+      const els = seatEl(i)?.querySelectorAll(".hole .card") ?? [];
+      st.hole.forEach((c, k) => {
+        if (c !== "??" && os.hole[k] === "??" && els[k]) FX.flipIn(els[k], back, 400 + k * 180);
+      });
     });
-    return;
+    if (oh.pot !== nh.pot) FX.tick($("pot"), oh.pot, nh.pot);
   }
 
-  // New board cards flip over (after any bets are swept in)
-  const swept = s.seats.some((st, i) => st && old.seats[i]?.bet > 0 && st.bet === 0);
-  nh.board.forEach((c, idx) => {
-    if (idx >= oh.board.length) FX.flipIn($("board").children[idx], back, (swept ? 450 : 0) + (idx - oh.board.length) * 160);
-  });
-
-  s.seats.forEach((st, i) => {
-    const os = old.seats[i];
-    if (!st || !os) return;
-    if (!os.folded && st.folded && before.holes[i]?.length) FX.muck(before.holes[i], boardRect, back);
-    const els = seatEl(i)?.querySelectorAll(".hole .card") ?? [];
-    st.hole.forEach((c, k) => {
-      if (c !== "??" && os.hole[k] === "??" && els[k]) FX.flipIn(els[k], back, 300 + k * 140);
-    });
-    if (st.bet > os.bet) {
-      const betEl = seatEl(i).querySelector(".bet");
-      if (betEl) hideUntil(betEl, FX.flyChips(st.bet - os.bet, plateRect(i), betEl.getBoundingClientRect()));
-    } else if (os.bet > 0 && st.bet === 0 && before.bets[i]) {
-      FX.flyChips(os.bet, before.bets[i], potRect);
+  // Chips: each one flies on its own and lands on its stack, one after another
+  const perSource = {};
+  let sweepTime = 0;
+  const showdownPause = nh.result && !oh?.result ? (nh.result.endedBy === "showdown" ? 1100 : 400) : 0;
+  for (const f of flights) {
+    const key = f.from === "plate" ? `p${f.seat}` : f.to;
+    const k = (perSource[key] = (perSource[key] ?? -1) + 1);
+    const target = document.querySelector(`[data-chip-id="${f.chip.id}"]`);
+    if (f.to === "bet" || f.to === "pot") {
+      const from = f.from === "plate" ? plateRect(f.seat) : before.chips[f.chip.id];
+      const delay = dealTime + k * 110;
+      if (f.to === "pot") sweepTime = Math.max(sweepTime, delay + 700);
+      FX.landChip(f.chip.d, size, from, target, delay);
+    } else if (f.to === "win" || f.to === "house") {
+      const from = before.chips[f.chip.id];
+      const dest = f.to === "win" ? plateRect(f.winner) : new DOMRect(innerWidth / 2, -60, 1, 1);
+      const delay = showdownPause + k * 45;
+      FX.landChip(f.chip.d, size, from, null, delay, { fadeOut: true, to: dest });
+      if (f.to === "house") continue;
     }
-  });
+  }
 
-  if (oh.pot !== nh.pot) FX.tick($("pot"), oh.pot, nh.pot);
+  // New board cards flip once any chips have been swept into the pot
+  if (!newHand)
+    nh.board.forEach((c, idx) => {
+      if (idx >= oh.board.length) FX.flipIn($("board").children[idx], back, sweepTime + (idx - oh.board.length) * 220);
+    });
 
-  // Hand over: pot slides to the winner(s), then the celebration
-  if (!oh.result && nh.result) {
-    const delay = nh.result.endedBy === "showdown" ? 900 : 300;
+  // Hand over: the celebration starts as the pot arrives
+  if (nh.result && !oh?.result) {
     const you = s.you.seat;
     nh.result.payouts.forEach((amt, i) => {
       if (amt <= 0) return;
-      setTimeout(() => FX.flyChips(amt, potRect, plateRect(i), { size: 32 }), delay);
       const plate = () => seatEl(i)?.querySelector(".plate");
       const style = i === you ? app.celebration : "glow";
-      setTimeout(() => plate() && FX.celebrate(style, plate(), amt, { chipColors: FX.chipColors() }), delay + 500);
+      setTimeout(() => plate() && FX.celebrate(style, plate(), amt, { chipColors: FX.chipColors() }), showdownPause + 700);
     });
   }
 }
@@ -308,10 +415,8 @@ function render() {
   const rel = (i) => (you >= 0 ? (i - you + nSeats) % nSeats : i);
   const winners = new Set(h?.result ? h.result.pots.flatMap((p) => p.winners) : []);
 
-  // board and pot (the pile shows chips already collected, not the bets still in front of players)
+  // board and pot label (chips are drawn by drawPools)
   $("pot").textContent = (h?.pot ?? 0).toLocaleString();
-  const collected = h && !h.result ? h.pot - s.seats.reduce((a, st) => a + (st?.bet ?? 0), 0) : 0;
-  $("pot-pile").replaceChildren(...(collected > 0 ? FX.chipPile(collected, 30).children : []));
   const board = $("board");
   board.replaceChildren(...[0, 1, 2, 3, 4].map((i) => cardEl(h?.board[i])));
   $("street").textContent = h ? (h.result ? (h.result.endedBy === "showdown" ? "Showdown" : "Hand over") : h.street) : "Waiting for players";
@@ -351,12 +456,6 @@ function render() {
       (h && h.button === i ? `<div class="dealer">D</div>` : "");
 
     el.replaceChildren(hole, plate);
-    if (seat.bet > 0) {
-      const bet = document.createElement("div");
-      bet.className = "bet";
-      bet.append(FX.chipStack(seat.bet, 28), Object.assign(document.createElement("span"), { textContent: seat.bet.toLocaleString() }));
-      el.append(bet);
-    }
   });
 
   renderActions(s);
@@ -461,20 +560,61 @@ setInterval(() => {
   if (ring) ring.style.setProperty("--t", Math.max(0, (s.hand.deadline - Date.now()) / (s.turnSeconds * 1000)).toFixed(3));
 }, 200);
 
+// ---------------------------------------------------------------- showroom (demo mode)
+let demoTimers = [];
+async function playDemo(demo) {
+  demoTimers.forEach(clearTimeout);
+  demoTimers = [];
+  app.state = null;
+  pools.hand = null;
+  let t = 0;
+  for (const step of await demo.demoSequence()) {
+    t += step.wait;
+    demoTimers.push(setTimeout(() => onState(step.state), t));
+  }
+  app.demoLength = t;
+  if (new URLSearchParams(location.search).get("loop") !== "0") demoTimers.push(setTimeout(() => playDemo(demo), t + 6500));
+}
+
+function showroom(demo) {
+  const opts = (list, cur, names = {}) => list.map((v) => `<option value="${v}"${v === cur ? " selected" : ""}>${names[v] ?? v[0].toUpperCase() + v.slice(1)}</option>`).join("");
+  const panel = document.createElement("div");
+  panel.className = "showroom";
+  panel.innerHTML = `<h3>Showroom <small>live, rendered on your device</small></h3>
+    <label>Room<select data-k="room">${opts(ROOMS, document.documentElement.dataset.room)}</select></label>
+    <label>Card deck<select data-k="deck">${opts(DECKS, document.documentElement.dataset.deck, { ivory: "Ivory & Gold", royal: "Royal Four-Colour", casino: "Casino Pro", deco: "Art Deco" })}</select></label>
+    <label>Chips<select data-k="chips">${opts(CHIP_SETS, app.chips, Object.fromEntries(CHIP_SETS.map((k) => [k, FX.CHIP_STYLES[k].name])))}</select></label>
+    <label>Celebration<select data-k="celebration">${opts(FX.CELEBRATIONS, app.celebration, { chipshower: "Chip Shower", goldrush: "Gold Rush" })}</select></label>
+    <div class="row"><button class="primary" data-act="replay">Replay hand</button><button class="neutral" data-act="celebrate">Celebrate</button></div>`;
+  document.body.append(panel);
+  panel.addEventListener("change", (e) => {
+    const k = e.target.dataset.k;
+    const v = e.target.value;
+    if (k === "room") setRoom(v);
+    if (k === "deck") { setDeck(v); render(); drawPools(app.state, []); }
+    if (k === "chips") { setChips(v); if (app.state) drawPools(app.state, []); }
+    if (k === "celebration") setCelebration(v);
+  });
+  panel.addEventListener("click", (e) => {
+    const act = e.target.dataset.act;
+    if (act === "replay") playDemo(demo);
+    if (act === "celebrate") {
+      const plate = document.querySelector('.seat[data-abs="0"] .plate');
+      if (plate) FX.celebrate(app.celebration, plate, 390, { chipColors: FX.chipColors() });
+    }
+  });
+}
+
 // ---------------------------------------------------------------- start
 async function start() {
   if (app.demo) {
     const demo = await import("./demo.js");
     show("table");
     $("wallet-balance").textContent = "500";
-    if (app.demo === "play") {
-      // A scripted hand, played with the real renderer and animations
-      let t = 0;
-      for (const step of await demo.demoSequence()) {
-        t += step.wait;
-        setTimeout(() => onState(step.state), t);
-      }
-      app.demoLength = t;
+    if (app.demo === "play" || app.demo === "showroom") {
+      // A scripted hand, played live by the real renderer (looping), with controls to try every cosmetic
+      showroom(demo);
+      playDemo(demo);
     } else if (app.demo === "celebrate") {
       // Plays every win celebration in turn on the showdown screen
       onState(await demo.demoState("showdown"));
