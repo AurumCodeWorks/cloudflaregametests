@@ -1,0 +1,20 @@
+{
+  "name": "cloudflaregametests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test:engine": "node tests/engine.test.ts",
+    "test:e2e": "node tests/four-players.cjs",
+    "test:abuse": "node tests/abuse.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261116.1",
+    "typescript": "^5.9.0",
+    "wrangler": "^4.163.0"
+  }
+}
