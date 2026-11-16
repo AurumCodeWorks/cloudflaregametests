@@ -82,7 +82,7 @@
 .stack-col > .chip1 { position: absolute; left: 0; }
 @media (max-width: 900px) {
   .zone { width: 58px; height: 58px; }
-  .zone.pos-0 { left: 77%; top: 84%; }
+  .zone.pos-0 { left: 81%; top: 89%; }
   .zone.pos-1 { left: 22%; top: 47%; }
   .zone.pos-2 { left: 76%; top: 12%; }
   .zone.pos-3 { left: 78%; top: 47%; }
