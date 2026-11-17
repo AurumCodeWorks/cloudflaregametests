@@ -13,7 +13,7 @@ Multiplayer Texas Hold'em and two slot machines, running entirely on Cloudflare.
 | `src/table.ts` | Durable Object (1 per table) | The authority: shuffles, deals, turns, timers, bots, chip movements |
 | `src/ledger.ts` + `migrations/` | D1 | Double-entry play-chip ledger; every transfer idempotent, balances can't go negative |
 | hand histories | R2 | Every finished hand, with the deck and salts, for audits and disputes |
-| `audio/` + `public/sound.js` | R2 | 19 sound effects and 3 music loops, served by the Worker at `/audio/v1/...` (cached for good, byte ranges supported) |
+| `audio/` + `public/sound.js` | R2 | 31 sound effects and 4 music loops, served by the Worker at `/audio/v2/...` (cached for good, byte ranges supported) |
 | `src/holdem.ts`, `src/cards.ts` | — | Rules engine, CSPRNG shuffle, hand evaluator, per-card deck commitments |
 | `src/slots.ts` + `migrations/0003_slots.sql` | Durable Object (1 per player) + D1 | Slot machines: the player's seeds, nonce and spins; stake and payout through the ledger; spin and seed audit trail |
 | `public/machines.js`, `public/fair.js` | — | Published reel strips and paytables, exact RTP, and the provably-fair spin derivation, shared by server, browser and tests |

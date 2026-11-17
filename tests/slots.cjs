@@ -40,6 +40,7 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
     // ---- one press, one spin, at least 2.5 s; pressing again mid-spin does nothing
     await pg.click('[data-testid="stake-20"]');
     const nonce0 = await pg.evaluate(() => window.__slots.state.nonce);
+    const heardFrom = await pg.evaluate(() => window.__sound.played.length);
     const t0 = Date.now();
     await pg.click('[data-testid="spin"]');
     await pg.waitForTimeout(150);
@@ -56,6 +57,10 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
     check(st.nonce === nonce0 + 1, `${id}: exactly one spin was made (no second spin from the extra presses)`);
     await pg.waitForTimeout(1200);
     check((await pg.evaluate(() => window.__slots.state.nonce)) === nonce0 + 1 && !(await pg.evaluate(() => window.__slots.spinning)), `${id}: nothing spins by itself afterwards`);
+    const kind = id === "sevens" ? "slot-classic" : "slot-royal";
+    const heard = await pg.evaluate((from) => window.__sound.played.slice(from).filter((n) => n.startsWith("slot-") && !n.includes("-win-")), heardFrom);
+    check(heard.filter((n) => n === `${kind}-start`).length === 1 && heard.filter((n) => n === `${kind}-spin`).length === 1 && heard.filter((n) => n === `${kind}-stop`).length === reels && heard.every((n) => n.startsWith(kind)),
+      `${id}: its own sounds played: one start, one spin bed, ${reels} reel stops (${heard.length} in all)`);
     const result = await pg.textContent('[data-testid="slot-result"]');
     check(/No win|returned|you win/.test(result), `${id}: the result is stated in words ("${result}")`);
     const net = await pg.textContent('[data-testid="sess-net"]');
@@ -122,6 +127,17 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
     await pg.waitForSelector("#screen-lobby:not([hidden])");
     check(true, `${id}: back in the lobby`);
   }
+
+  // ---- music: Lucky Sevens has its own track; Royal Reels keeps the room's
+  await pg.click('[data-testid="sound"]');
+  await pg.check('[data-testid="snd-music"]');
+  await pg.click('[data-testid="sound"]');
+  await pg.click('[data-testid="play-sevens"]');
+  await pg.waitForFunction(() => window.__sound.track === "music-slots", null, { timeout: 8000 }).catch(() => {});
+  check((await pg.evaluate(() => window.__sound.track)) === "music-slots", "Lucky Sevens plays its own music when music is on");
+  await pg.click('[data-testid="slot-stop"]'); await pg.click('[data-testid="sum-done"]');
+  await pg.waitForFunction(() => window.__sound.track === "music-lounge", null, { timeout: 8000 }).catch(() => {});
+  check((await pg.evaluate(() => window.__sound.track)) === "music-lounge", "leaving it goes back to the room's music");
 
   // ---- phone: nothing spills off the screen
   const ph = await (await browser.newContext({ viewport: { width: 390, height: 780 }, storageState: await ctx.storageState() })).newPage();

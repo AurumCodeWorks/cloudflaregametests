@@ -119,7 +119,7 @@ export function createSlots({ api, toast, cardEl, FX, Sound, show, app }) {
     });
     $("reel-window").classList.add("spinning");
     Sound.play(`${kind}-start`);
-    const bed = Sound.loop?.(`${kind}-spin`, { volume: 0.8 });
+    const bed = Sound.loop?.(`${kind}-spin`, { volume: m.kind === "classic" ? 0.8 : 1 });
     let stops;
     try { stops = await result; } catch (err) {
       bed?.();

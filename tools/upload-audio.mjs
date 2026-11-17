@@ -5,7 +5,7 @@
 import { readdirSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
-const VERSION = "v1";
+const VERSION = "v2";
 const BUCKET = "cfgt-poker-hands";
 const where = process.argv.includes("--remote") ? "--remote" : "--local";
 const files = readdirSync("audio").filter((f) => f.endsWith(".mp3"));

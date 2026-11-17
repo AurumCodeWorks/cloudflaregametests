@@ -5,16 +5,19 @@
 // Nothing makes a sound until the player interacts (browsers require it), and music stays off
 // until they turn it on. Settings are remembered on this device.
 
-const BASE = "/audio/v1/";
+const BASE = "/audio/v2/";
 export const EFFECTS = [
   "shuffle", "card-deal", "card-flip", "fold", "check", "chip-bet", "chip-stack", "all-in", "pot-win",
   "your-turn", "timer-tick", "ui-click", "unlock",
   "celebrate-glow", "celebrate-chipshower", "celebrate-confetti", "celebrate-spotlight", "celebrate-fireworks", "celebrate-goldrush",
+  // Slot machines: each has its own start, looping spin bed, reel stop and three sizes of win (there is no sound for a non-win)
+  "slot-classic-start", "slot-classic-spin", "slot-classic-stop", "slot-classic-win-small", "slot-classic-win-medium", "slot-classic-win-big",
+  "slot-royal-start", "slot-royal-spin", "slot-royal-stop", "slot-royal-win-small", "slot-royal-win-medium", "slot-royal-win-big",
 ];
 // One track per room style; gains bring the three to the same loudness (measured at -15.4, -13.6, -15.0 LUFS)
-const MUSIC_FOR_ROOM = { classic: "music-lounge", midnight: "music-lounge", speakeasy: "music-speakeasy", riviera: "music-riviera", vegas: "music-riviera", penthouse: "music-riviera" };
-const MUSIC_GAIN = { "music-lounge": 0.93, "music-riviera": 0.76, "music-speakeasy": 0.89 };
-export const TRACK_NAMES = { "music-lounge": "Lounge piano and bass", "music-speakeasy": "Speakeasy swing", "music-riviera": "Riviera bossa" };
+const MUSIC_FOR_ROOM = { classic: "music-lounge", midnight: "music-lounge", speakeasy: "music-speakeasy", riviera: "music-riviera", vegas: "music-riviera", penthouse: "music-riviera", slots: "music-slots" }; // "slots" = the Lucky Sevens parlour
+const MUSIC_GAIN = { "music-lounge": 0.93, "music-riviera": 0.76, "music-speakeasy": 0.89, "music-slots": 0.92 };
+export const TRACK_NAMES = { "music-lounge": "Lounge piano and bass", "music-speakeasy": "Speakeasy swing", "music-riviera": "Riviera bossa", "music-slots": "Slot parlour swing" };
 const CROSSFADE_S = 3;
 
 const DEFAULTS = { effects: true, effectsVolume: 0.8, music: false, musicVolume: 0.35 };
