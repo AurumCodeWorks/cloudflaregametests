@@ -1,6 +1,7 @@
 // Card Table client. Renders whatever the table server sends; the server is the only authority.
 import * as FX from "./fx.js";
 import { createShop } from "./shop.js";
+import { verifyDeal } from "./fair.js";
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const RANK = { T: "10" };
@@ -11,6 +12,7 @@ const app = {
   ws: null,
   state: null,
   verified: {}, // handNo -> true/false
+  commits: {}, // handNo -> fingerprint as first seen while the hand was live (before any card was revealed)
   demo: new URLSearchParams(location.search).get("demo"),
 };
 window.__poker = app; // test hook
@@ -161,18 +163,20 @@ function send(msg) {
 }
 
 // ---------------------------------------------------------------- provably fair check
-async function sha256Hex(text) {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(hash)].map((x) => x.toString(16).padStart(2, "0")).join("");
-}
-async function verifyHand(hand) {
+async function verifyHand(s) {
+  const hand = s.hand;
   if (!hand.reveal || app.verified[hand.no] !== undefined) return;
   app.verified[hand.no] = "checking";
-  const leaves = await Promise.all(hand.reveal.map((r) => (r.leaf ? r.leaf : sha256Hex(`${r.card}:${r.salt}`))));
-  const ok = (await sha256Hex(leaves.join(","))) === hand.commit;
-  // every card shown on the board must be one of the revealed (committed) cards
-  const revealed = new Set(hand.reveal.filter((r) => r.card).map((r) => r.card));
-  app.verified[hand.no] = ok && hand.board.every((c) => revealed.has(c));
+  // Check against the fingerprint we saw before the deal, so it can't be swapped at the end
+  const commit = app.commits[hand.no] ?? hand.commit;
+  const holes = {};
+  const mine = s.seats[s.you.seat]?.hole;
+  if (mine?.length === 2 && !mine.includes("??")) holes[s.you.seat] = mine;
+  for (const [seat, shown] of Object.entries(hand.result.shown)) holes[seat] = shown.hole;
+  app.verified[hand.no] = await verifyDeal({
+    commit, reveal: hand.reveal, button: hand.button, dealtIn: s.seats.map((x) => !!x?.inHand), board: hand.board, holes,
+  });
+  for (const k of Object.keys(app.verified)) if (+k < hand.no - 20) { delete app.verified[k]; delete app.commits[k]; }
   if (app.state?.hand?.no === hand.no) renderFair(app.state.hand);
 }
 
@@ -223,7 +227,8 @@ function onState(s) {
   app.state = s;
   // Your buy-in just moved from your balance to the table: refresh the header balance
   if (!app.demo && (old?.you?.seat ?? -1) < 0 && s.you.seat >= 0) refreshMe().catch(() => {});
-  if (s.hand?.reveal) verifyHand(s.hand);
+  if (s.hand && !s.hand.result) app.commits[s.hand.no] ??= s.hand.commit;
+  if (s.hand?.reveal) verifyHand(s);
   const before = capture();
   render();
   const flights = syncPools(old, s);

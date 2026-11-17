@@ -1,7 +1,7 @@
 // Checks chips at rest on the table never overlap numbers, cards or nameplates (desktop + phone):
 // node tests/chip-layout.cjs [baseUrl]
 const { chromium, devices } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const AT = [1300, 3400, 5500, 7500, 9400, 10900, 12200, 13900, 15400, 16600, 17900, 19400, 20700]; // after each step settles
 (async () => {
   const browser = await chromium.launch();

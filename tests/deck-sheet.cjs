@@ -1,6 +1,6 @@
 // Renders all deck themes side by side: node tests/deck-sheet.cjs [baseUrl]
 const { chromium } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const DECKS = [
   ["modern", "Modern", "Tier 1 · Base deck (free) · clean, no effects"],
   ["casino", "Casino Pro", "Tier 2 · glossy laminate sheen"],

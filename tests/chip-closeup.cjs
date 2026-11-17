@@ -1,6 +1,6 @@
 // One large chip from each set: node tests/chip-closeup.cjs [baseUrl]
 const { chromium } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const PICKS = [["casino", 25, "Casino Clay"], ["tricolour", 5, "Tri-Colour Clay"], ["ceramic", 100, "Ceramic Pro"], ["highroller", 500, "High Roller"], ["pearl", 25, "Mother of Pearl"], ["goldfoil", 1000, "Gold Foil"]];
 (async () => {
   const browser = await chromium.launch();

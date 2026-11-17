@@ -2,7 +2,7 @@
 // Renders all 52 cards per deck, screenshots each part on its own (corner rank, corner suit, centre art,
 // frame), and reports any pair of parts whose painted pixels come within MIN_GAP pixels of each other.
 const { chromium } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const decks = process.argv.slice(3).length ? process.argv.slice(3) : ["ivory", "noir", "deco", "casino", "royal", "modern"];
 const W = 120; // card width used for the check
 const MIN_GAP = 3; // px at W=120 (about 1.6px on a 64px table card)

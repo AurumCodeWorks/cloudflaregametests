@@ -3,6 +3,7 @@
 // unit-tested in Node, and re-run from a saved hand history to verify the result.
 
 import { bestScore, categoryName } from "./cards.ts";
+import type { RevealItem } from "./cards.ts";
 
 export const SMALL_BLIND = 5;
 export const BIG_BLIND = 10;
@@ -41,6 +42,7 @@ export interface Seat {
   canRaise: boolean;
   leaving: boolean;
   timeouts: number;
+  cashedOut?: boolean; // left mid-hand: stack already paid out; the seat stays until the hand ends so its chips stay in the pot
 }
 
 export interface ActionRecord {
@@ -309,7 +311,7 @@ function progress(t: TableState): void {
     if (h.street === "river") return finish(t, "showdown");
     nextStreet(t);
     // If at most one player can still bet, keep dealing to the river
-    if (actors.length <= 1 || active.filter((i) => canAct(t, i)).length <= 1) {
+    if (actors.length <= 1) {
       while ((h.street as Street) !== "river") nextStreet(t);
       return finish(t, "showdown");
     }
@@ -447,6 +449,7 @@ export interface HandHistory {
   commit: string;
   actions: ActionRecord[];
   board: string[];
+  rake: RakeRule; // the table's house-cut rule, needed to reproduce the payouts
   result: HandResult;
   endedAt: number;
 }
@@ -456,7 +459,7 @@ export function historyOf(tableId: string, t: TableState): HandHistory {
   return {
     tableId, handNo: h.no, prevButton: h.prevButton, startSeats: h.startSeats,
     deck: h.deck, salts: h.salts, commit: h.commit, actions: h.actions,
-    board: h.board, result: h.result!, endedAt: Date.now(),
+    board: h.board, rake: t.rake ?? DEFAULT_RAKE, result: h.result!, endedAt: Date.now(),
   };
 }
 
@@ -464,15 +467,26 @@ export function historyOf(tableId: string, t: TableState): HandHistory {
 export function replayHand(hist: HandHistory): HandResult {
   const t = newTable();
   t.seats = hist.startSeats.map((s) => (s ? newSeat(s.userId, s.name, s.isBot, s.stack, "replay") : null));
+  t.rake = hist.rake ?? DEFAULT_RAKE; // histories saved before the rule was recorded used the default
   t.button = hist.prevButton;
   t.handNo = hist.handNo - 1;
   startHand(t, hist.deck, hist.salts, hist.commit);
   // The first two recorded actions are the blinds, posted by startHand
   for (const a of hist.actions.slice(2)) {
-    const type: ActionType = a.type === "allin" ? "allin" : a.type;
-    const err = act(t, a.seat, type === "raise" ? { type, to: a.to } : { type });
+    const err = act(t, a.seat, a.type === "raise" ? { type: a.type, to: a.to } : { type: a.type });
     if (err) throw new Error(`Replay diverged at ${JSON.stringify(a)}: ${err}`);
   }
   if (!t.hand?.result) throw new Error("Replay did not finish the hand");
   return t.hand.result;
+}
+
+/**
+ * What one player may check after the hand: every card they were allowed to see (board, their own
+ * hole cards, hands shown at showdown) with its salt, and only the commitment leaf for the rest.
+ * Positions match the deck, so the player can also check each card came from its proper place.
+ */
+export function revealFor(h: Hand, leaves: string[], ownHole: string[]): RevealItem[] {
+  const visible = new Set([...h.board, ...ownHole]);
+  for (const shown of Object.values(h.result?.shown ?? {})) for (const c of shown.hole) visible.add(c);
+  return h.deck.map((c, i) => (visible.has(c) ? { card: c, salt: h.salts[i] } : { leaf: leaves[i] }));
 }

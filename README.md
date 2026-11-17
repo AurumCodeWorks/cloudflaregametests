@@ -35,13 +35,14 @@ npx wrangler dev --var BOT_DELAY_MS:150 --var NEXT_HAND_MS:1200 --var TURN_SECON
 ## Test
 
 ```bash
-node tests/engine.test.ts          # rules engine: 9 tests incl. 3,000 random hands + replay
+node tests/engine.test.ts          # rules engine: 12 tests incl. 3,000 random hands, replay and the fairness check
 node tests/four-players.cjs        # 4 real browsers at one table (needs the dev server)
 node tests/abuse.mjs               # cheating/abuse attempts (needs the dev server)
 node tests/shop.cjs                # shop rules + another player sees your equipped deck (needs the dev server)
 node tests/unlimited.mjs           # demo mode: unlimited chips, auto re-buy on bust, everything unlocks free
-npm run test:cards                 # no part of any card touches another (serve /public on :8790)
-node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (serve /public on :8790)
+node tests/leave-midhand.mjs       # leaving mid-hand: folded and released at once, pot chips kept, ledger at 0
+npm run test:cards                 # no part of any card touches another (needs the dev server)
+node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (needs the dev server)
 ```
 
 ## Deploy

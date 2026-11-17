@@ -1,6 +1,6 @@
 // Renders every room (with its matching collection deck) into one sheet: node tests/room-sheet.cjs [baseUrl]
 const { chromium } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const ROOMS = [
   ["classic", "modern", "Classic", "Tier 1 · Free · green felt, walnut rail"],
   ["midnight", "casino", "Midnight", "Tier 2 · After Hours Collection"],

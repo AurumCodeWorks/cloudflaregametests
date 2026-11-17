@@ -32,11 +32,13 @@ export async function shopState(db: D1Database, userId: string, mode: string) {
 
 type Result = { ok: true; granted: string[] } | { ok: false; status: number; error: string };
 
-/** Record a completed purchase and grant its items. Idempotent per purchase id. */
-export async function grantPurchase(db: D1Database, userId: string, itemId: string, purchaseId: string, mode: string): Promise<Result> {
+/** Record a completed purchase and grant its items. Idempotent per purchase id. Pass `owned` if already loaded. */
+export async function grantPurchase(
+  db: D1Database, userId: string, itemId: string, purchaseId: string, mode: string, owned?: Set<string>,
+): Promise<Result> {
   const item = CATALOG.find((i) => i.id === itemId);
   if (!item) return { ok: false, status: 404, error: "No such item." };
-  const owned = await ownedItems(db, userId);
+  owned ??= await ownedItems(db, userId);
   const grants = unlocks(itemId).filter((id) => !owned.has(id));
   const now = Date.now();
   await db.batch([
@@ -57,7 +59,7 @@ export async function buy(db: D1Database, userId: string, itemId: string, mode: 
   const owned = await ownedItems(db, userId);
   if (unlocks(itemId).every((id) => owned.has(id))) return { ok: false, status: 409, error: "You already own everything in that." };
   if (mode !== "test") return { ok: false, status: 501, error: "Payments aren't switched on yet." };
-  return grantPurchase(db, userId, itemId, `test:${crypto.randomUUID()}`, "test");
+  return grantPurchase(db, userId, itemId, `test:${crypto.randomUUID()}`, "test", owned);
 }
 
 export async function equip(db: D1Database, userId: string, itemId: string): Promise<Result> {

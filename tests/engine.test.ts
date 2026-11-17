@@ -2,11 +2,12 @@
 import assert from "node:assert/strict";
 import { bestScore, categoryName, commitDeck, eval5, freshDeck, randomHex, secureShuffle, verifyReveal } from "../src/cards.ts";
 import {
-  act, buildPots, chipsOnTable, historyOf, legalActions, newSeat, newTable, replayHand, startHand, BUY_IN,
+  act, buildPots, chipsOnTable, historyOf, legalActions, newSeat, newTable, replayHand, revealFor, startHand, BUY_IN,
 } from "../src/holdem.ts";
 import type { TableState } from "../src/holdem.ts";
 import { decide } from "../src/bot.ts";
 import { STAKES, TOURNAMENT_RAKE, disclose } from "../src/stakes.ts";
+import { verifyDeal } from "../public/fair.js";
 
 let passed = 0;
 function test(name: string, fn: () => void | Promise<void>) {
@@ -136,10 +137,7 @@ await test("3,000 random hands: chips conserved, stacks never negative, every ha
   for (let i = 0; i < 4; i++) seatUp(i);
   for (let hand = 0; hand < 3000; hand++) {
     for (let i = 0; i < 4; i++) {
-      if (t.seats[i]!.stack === 0) {
-        totalIn -= 0;
-        seatUp(i);
-      }
+      if (t.seats[i]!.stack === 0) seatUp(i);
     }
     assert.ok(startHand(t, secureShuffle(freshDeck()), [], "c"));
     let guard = 0;
@@ -169,6 +167,56 @@ await test("3,000 random hands: chips conserved, stacks never negative, every ha
   }
   // buildPots on a finished hand is still callable (sanity)
   assert.ok(Array.isArray(buildPots(t)));
+});
+
+await test("replay uses the table's own house-cut rule (free-play tables take 0%)", () => {
+  const t = newTable();
+  t.rake = { percent: 0, cap: 0, noFlopNoDrop: true };
+  t.seats[0] = newSeat("a", "A", false, 500, "r");
+  t.seats[1] = newSeat("b", "B", false, 500, "r");
+  startHand(t, freshDeck(), [], "c");
+  act(t, t.hand!.toAct, { type: "allin" });
+  act(t, t.hand!.toAct, { type: "call" });
+  assert.equal(t.hand!.result!.rake, 0);
+  const hist = JSON.parse(JSON.stringify(historyOf("test", t)));
+  assert.deepEqual(replayHand(hist), hist.result);
+});
+
+/** Play a 4-handed hand to showdown and return what player `me` would receive. */
+async function showdownFor(me: number) {
+  const t = newTable();
+  for (let i = 0; i < 4; i++) t.seats[i] = newSeat(`p${i}`, `P${i}`, false, 500, "r");
+  t.button = 1; // button moves to seat 2
+  const deck = secureShuffle(freshDeck());
+  const salts = deck.map(() => randomHex(8));
+  const { commit, leaves } = await commitDeck(deck, salts);
+  startHand(t, deck, salts, commit);
+  act(t, t.hand!.toAct, { type: "fold" });
+  while (!t.hand!.result) act(t, t.hand!.toAct, legalActions(t, t.hand!.toAct)!.check ? { type: "check" } : { type: "call" });
+  const h = t.hand!;
+  const holes: Record<number, string[]> = { [me]: t.seats[me]!.hole };
+  for (const [seat, shown] of Object.entries(h.result!.shown)) holes[+seat] = shown.hole;
+  const input = { commit, reveal: revealFor(h, leaves, t.seats[me]!.hole), button: h.button, dealtIn: t.seats.map((s) => !!s?.inHand), board: [...h.board], holes };
+  return { input, h, leaves };
+}
+
+await test("fairness check passes an honest hand for every seat", async () => {
+  for (let me = 0; me < 4; me++) assert.ok(await verifyDeal((await showdownFor(me)).input), `seat ${me}`);
+});
+
+await test("fairness check catches cards that didn't come from their place in the committed deck", async () => {
+  const { input, h, leaves } = await showdownFor(0);
+  // A cheating server swaps the river for the card at the bottom of the deck, then reveals that position.
+  // The commitment still hashes correctly; only the position check can catch it.
+  const swapped = h.deck[51];
+  const board = [...input.board.slice(0, 4), swapped];
+  const reveal = revealFor({ ...h, board }, leaves, input.holes[0]);
+  assert.ok(!(await verifyDeal({ ...input, board, reveal })), "a board card from the wrong position must fail");
+  // ...and a fingerprint swapped after the deal fails too
+  assert.ok(!(await verifyDeal({ ...input, commit: "0".repeat(64) })));
+  // ...and claiming different hole cards for yourself fails
+  const fakeHole = [h.deck[50], h.deck[49]];
+  assert.ok(!(await verifyDeal({ ...input, holes: { ...input.holes, 0: fakeHole }, reveal: revealFor(h, leaves, fakeHole) })));
 });
 
 console.log(`\n${passed} tests passed`);

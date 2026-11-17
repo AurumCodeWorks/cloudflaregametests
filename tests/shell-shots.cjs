@@ -1,6 +1,6 @@
 // Screenshots of every shell screen: node tests/shell-shots.cjs [baseUrl]
 const { chromium, devices } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 (async () => {
   const b = await chromium.launch();
   const errs = [];

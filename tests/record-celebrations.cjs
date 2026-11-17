@@ -1,7 +1,7 @@
 // Records every win celebration in turn: node tests/record-celebrations.cjs [baseUrl]
 const { chromium } = require("playwright");
 const fs = require("fs");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 (async () => {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, recordVideo: { dir: "tests/out/video", size: { width: 1280, height: 800 } } });

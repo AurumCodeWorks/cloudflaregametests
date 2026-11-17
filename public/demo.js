@@ -1,8 +1,5 @@
 // Preview states for /?demo=turn and /?demo=showdown (no server needed).
-async function sha256Hex(text) {
-  const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-  return [...new Uint8Array(hash)].map((x) => x.toString(16).padStart(2, "0")).join("");
-}
+import { sha256Hex } from "./fair.js";
 
 const seats = () => [
   { name: "Sam", isBot: false, you: true, stack: 410, bet: 0, folded: false, allIn: false, inHand: true, connected: true, hole: ["Ah", "Kh"] },
@@ -24,15 +21,7 @@ export async function demoState(kind) {
     s[3].bet = 0;
     s[3].hole = [];
     s[1].stack = 555;
-    // deck order consistent with the deal: holes, burn, flop, burn, turn, burn, river
-    const deck = ["Qs", "8s", "9d", "Ah", "Qd", "4s", "3c", "Kh", "5c", "Qh", "7c", "Jh", "6h", "2d", "9c", "Th"];
-    const rest = "23456789TJQKA".split("").flatMap((r) => "cdhs".split("").map((x) => r + x)).filter((c) => !deck.includes(c));
-    const full = deck.concat(rest);
-    const salts = full.map((_, i) => (i * 2654435761 >>> 0).toString(16));
-    const leaves = await Promise.all(full.map((c, i) => sha256Hex(`${c}:${salts[i]}`)));
-    const commit = await sha256Hex(leaves.join(","));
-    const visible = new Set([...fullBoard, "Ah", "Kh", "Qs", "Qd"]);
-    const reveal = full.map((c, i) => (visible.has(c) ? { card: c, salt: salts[i] } : { leaf: leaves[i] }));
+    const { commit, reveal } = await proof([...fullBoard, "Ah", "Kh", "Qs", "Qd"]);
     return {
       type: "state", tableId: "t-demo", turnSeconds: 20, wallet: 500,
       you: { seat: 0, waiting: false },
@@ -86,7 +75,9 @@ export async function demoState(kind) {
 // so every animation can be seen with the real renderer.
 // ---------------------------------------------------------------------------
 async function proof(visibleCards) {
-  const deck = ["Qs", "8s", "9d", "Ah", "Qd", "4s", "3c", "Kh", "5c", "Qh", "7c", "Jh", "6h", "2d", "9c", "Th"];
+  // Deck order follows the real deal with the button on seat 2: hole cards to seats 3, 0, 1, 2 (twice),
+  // then burn + flop, burn + turn, burn + river
+  const deck = ["9d", "Ah", "Qs", "8s", "4s", "Kh", "Qd", "3c", "5c", "Qh", "7c", "Jh", "6h", "2d", "9c", "Th"];
   const rest = "23456789TJQKA".split("").flatMap((r) => "cdhs".split("").map((x) => r + x)).filter((c) => !deck.includes(c));
   const full = deck.concat(rest);
   const salts = full.map((_, i) => ((i + 7) * 2654435761 >>> 0).toString(16));

@@ -2,9 +2,6 @@
 // Everything respects prefers-reduced-motion (elements simply appear in place).
 export const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Animation pace: 1 = default. Everything below is tuned slower and smoother than a typical web game.
-export const PACE = 1;
-
 /**
  * Adaptive quality ("GPU helper"): measure real frame times for ~1s. If the device can't hold
  * ~45fps, or it is a low-power device, switch to a lighter mode (fewer particles, no shimmer).
@@ -268,30 +265,6 @@ export function landChip(d, size, from, targetEl, delay = 0, { fadeOut = false, 
   });
 }
 
-/**
- * Chips grouped the way a dealer stacks them: one value per stack, highest value first,
- * at most 6 chips per stack, stacks spaced apart so they never touch.
- */
-export function chipGroup(amount, size = 24, maxStacks = 4) {
-  const wrap = document.createElement("div");
-  wrap.className = "chip-group";
-  wrap.style.gap = `${Math.round(size * 0.18)}px`;
-  let a = amount;
-  const stacks = [];
-  for (const d of DENOMS) {
-    let n = Math.floor(a / d);
-    a -= n * d;
-    while (n > 0 && stacks.length < maxStacks) {
-      const take = Math.min(n, 6);
-      stacks.push(Array(take).fill(d));
-      n -= take;
-    }
-  }
-  for (const st of stacks) wrap.append(chipStack(0, size, st));
-  return wrap;
-}
-/** Back-compat alias used by the pot display. */
-export const chipPile = (amount, size = 24) => chipGroup(amount, size, 5);
 
 // ------------------------------------------------------------------ flights
 /** Fly `el` from one rect to another (arc), then remove it. */
@@ -311,7 +284,7 @@ export async function fly(el, from, to, { duration = 650, delay = 0, lift = 40, 
       { transform: `translate3d(${dx / 2}px, ${dy / 2 - lift}px, 0) scale(${(1 + s * endScale) / 2})`, opacity: 1, offset: 0.5 },
       { transform: `translate3d(${dx}px, ${dy}px, 0) scale(${s * endScale})`, opacity: fade ? 0 : 1 },
     ],
-    { duration: duration * PACE, delay, easing: "cubic-bezier(.35,.1,.25,1)", fill: "both" },
+    { duration, delay, easing: "cubic-bezier(.35,.1,.25,1)", fill: "both" },
   );
   return anim.finished.then(() => el.remove(), () => el.remove());
 }
@@ -346,15 +319,6 @@ export async function flipIn(el, makeBack, delay = 0) {
 /** Folded cards slide into the middle and fade. */
 export function muck(rects, toRect, makeBack) {
   rects.forEach((r, i) => fly(makeBack(), r, new DOMRect(center(toRect).x - r.width / 2, center(toRect).y - r.height / 2, r.width, r.height), { duration: 700, delay: i * 90, lift: 12, endScale: 0.7, fade: true }));
-}
-
-export function flyChips(amount, from, to, opts = {}) {
-  if (!from || !to || amount <= 0) return Promise.resolve();
-  const st = chipStack(amount, opts.size ?? 28);
-  const w = opts.size ?? 28;
-  const f = new DOMRect(center(from).x - w / 2, center(from).y - w / 2, w, w);
-  const t = new DOMRect(center(to).x - w / 2, center(to).y - w / 2, w, w);
-  return fly(st, f, t, { duration: 520, lift: 30, ...opts });
 }
 
 /** FLIP: animate an element from its previous rect to where it is now. */

@@ -1,6 +1,6 @@
 // Records the scripted hand with animations: node tests/record-demo.cjs [baseUrl] [query] [name]
 const { chromium } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const query = process.argv[3] || "room=penthouse&deck=ivory&chips=goldfoil&celebration=goldrush";
 const name = process.argv[4] || "demo-hand";
 const fs = require("fs");

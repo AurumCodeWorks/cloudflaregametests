@@ -1,6 +1,6 @@
 // Renders all chip sets side by side: node tests/chip-sheet.cjs [baseUrl]
 const { chromium } = require("playwright");
-const base = process.argv[2] || "http://localhost:8790";
+const base = process.argv[2] || "http://localhost:8787";
 const SETS = [
   ["casino", "Casino Clay", "Tier 1 · Free · six inserts, suited mold, ivory inlay"],
   ["tricolour", "Tri-Colour Clay", "Tier 2 · three-colour inserts, coloured inlay ring"],
