@@ -1,4 +1,4 @@
-// Card Table: the multiplayer poker server (free-play / play chips).
+// Card Table: the multiplayer poker server and the slot machines (free-play / play chips).
 {
   "name": "cfgt-poker",
   "main": "src/index.ts",
@@ -7,10 +7,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "TABLE", "class_name": "Table" },
-      { "name": "LOBBY", "class_name": "Lobby" }
+      { "name": "LOBBY", "class_name": "Lobby" },
+      { "name": "SLOTS", "class_name": "SlotSession" }
     ]
   },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Table", "Lobby"] }],
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Table", "Lobby"] },
+    { "tag": "v2", "new_sqlite_classes": ["SlotSession"] }
+  ],
   "d1_databases": [
     { "binding": "DB", "database_name": "cfgt-poker-ledger", "database_id": "efc9c088-1c2e-4b30-a3f7-a19bd1af97a8", "migrations_dir": "migrations" }
   ],

@@ -80,3 +80,75 @@ export async function verifyDeal({ commit, reveal, seeds = [], button, dealtIn, 
   if (!board.every((card, k) => at(pos.board[k]) === card)) return false;
   return Object.entries(holes).every(([seat, cards]) => pos.hole[seat] && cards.every((card, k) => at(pos.hole[seat][k]) === card));
 }
+
+// ---------------------------------------------------------------------------------------------
+// Provably-fair slot spins (shared by the server, the browser and the Node tests).
+//
+// 1. The server picks a secret seed and publishes commit = sha256(serverSeed) BEFORE any spin.
+// 2. The player supplies a client seed of their own; a nonce counts the spins made with this pair.
+// 3. Each spin's reel stops come from HMAC-SHA256(key = serverSeed, message = "clientSeed:nonce:machine:round"),
+//    read as eight 32-bit numbers. Each reel takes the next number; numbers that would bias the result
+//    are rejected (rejection sampling), so every stop on a reel is exactly equally likely.
+// 4. When the player changes seeds, the old server seed is revealed. Anyone can then re-run steps 3
+//    for every past spin and check the seed against the commit that was shown beforehand.
+
+const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, "0")).join("");
+
+export async function hmacSha256Hex(key, message) {
+  const enc = new TextEncoder();
+  const k = await crypto.subtle.importKey("raw", enc.encode(key), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return hex(await crypto.subtle.sign("HMAC", k, enc.encode(message)));
+}
+
+/** The message hashed for one round of one spin. */
+export const spinMessage = (clientSeed, nonce, machine, round) => `${clientSeed}:${nonce}:${machine}:${round}`;
+
+/** Eight unsigned 32-bit numbers from a 64-character hex digest. */
+export function digestWords(digestHex) {
+  const words = [];
+  for (let i = 0; i < 64; i += 8) words.push(parseInt(digestHex.slice(i, i + 8), 16));
+  return words;
+}
+
+/**
+ * Map random 32-bit numbers to one stop per reel. `sizes[i]` is the number of stops on reel i.
+ * A number at or above the largest multiple of the reel size is thrown away, so there is no modulo bias.
+ * Returns null if the numbers run out (the caller hashes another round and calls again with more).
+ */
+export function stopsFromWords(words, sizes) {
+  const stops = [];
+  let k = 0;
+  for (const n of sizes) {
+    const limit = Math.floor(0x100000000 / n) * n;
+    let x;
+    do {
+      if (k >= words.length) return null;
+      x = words[k++];
+    } while (x >= limit);
+    stops.push(x % n);
+  }
+  return stops;
+}
+
+/** The reel stops of one spin: fixed entirely by the two seeds, the nonce and the machine. */
+export async function spinStops({ serverSeed, clientSeed, nonce, machine, sizes }) {
+  const words = [];
+  for (let round = 0; ; round++) {
+    words.push(...digestWords(await hmacSha256Hex(serverSeed, spinMessage(clientSeed, nonce, machine, round))));
+    const stops = stopsFromWords(words, sizes);
+    if (stops) return stops;
+  }
+}
+
+/** Client seeds: 1-64 letters, digits, "-" or "_" (no ":" so the hashed message can't be ambiguous). */
+export const CLIENT_SEED = /^[A-Za-z0-9_-]{1,64}$/;
+
+/**
+ * True only if the revealed server seed matches the commit published before the spins AND it
+ * reproduces exactly the stops the player was shown.
+ */
+export async function verifySpin({ commit, serverSeed, clientSeed, nonce, machine, sizes, stops }) {
+  if ((await sha256Hex(serverSeed)) !== commit) return false;
+  const expect = await spinStops({ serverSeed, clientSeed, nonce, machine, sizes });
+  return Array.isArray(stops) && stops.length === expect.length && expect.every((s, i) => s === stops[i]);
+}

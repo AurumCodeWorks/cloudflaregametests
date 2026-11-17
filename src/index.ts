@@ -6,8 +6,9 @@ import { balance, topUp, transfer } from "./ledger.ts";
 import { randomHex } from "./cards.ts";
 import { FILES } from "./generated/assets.ts";
 import { buy, equip, shopState } from "./shop.ts";
+import { revealedSeeds, SlotSession, spinHistory } from "./slots.ts";
 
-export { Lobby, Table };
+export { Lobby, Table, SlotSession };
 
 const SECURITY_HEADERS = {
   "content-security-policy":
@@ -107,6 +108,30 @@ export default {
         if (typeof body.tableId === "string" && TABLE_ID.test(body.tableId)) return json({ tableId: body.tableId });
         if (body.private === true) return json({ tableId: await lobby().createPrivate(), private: true });
         return json({ tableId: await lobby().assign() });
+      }
+
+      // ------------------------------------------------------------ slot machines
+      // One Durable Object per player holds their seeds, nonce and spins (plain requests, nothing kept open)
+      if (path.startsWith("/api/slots")) {
+        const slots = env.SLOTS.get(env.SLOTS.idFromName(user.id));
+        const body = req.method === "POST" ? ((await req.json().catch(() => ({}))) as Record<string, unknown>) : {};
+        const reply = (r: { ok: boolean; status?: number }) => json(r, r.ok ? 200 : r.status);
+        if (path === "/api/slots" && req.method === "GET") return json(await slots.state(user.id));
+        if (path === "/api/slots/spin" && req.method === "POST") return reply(await slots.spin(user.id, body.machine, body.stake, body.rid));
+        if (path === "/api/slots/seed" && req.method === "POST") return reply(await slots.setSeed(user.id, body.clientSeed));
+        if (path === "/api/slots/stop" && req.method === "POST") return json(await slots.stop(user.id));
+        if (path === "/api/slots/seeds" && req.method === "GET") return json({ seeds: await revealedSeeds(env.DB, user.id) });
+        if (path === "/api/slots/history" && req.method === "GET") {
+          const seedNo = Number(url.searchParams.get("seed"));
+          if (!Number.isInteger(seedNo) || seedNo < 1) return json({ error: "Bad seed number." }, 400);
+          return json(await spinHistory(env.DB, user.id, seedNo));
+        }
+        // Test hook (AUDIT=1 only): crash right after this player's next "stake" or "payout" transfer
+        if (path === "/api/slots/debug/crash" && env.AUDIT === "1" && req.method === "POST") {
+          await slots.testCrashAfter(String(body.stage ?? "stake"));
+          return json({ ok: true });
+        }
+        return json({ error: "Not found" }, 404);
       }
 
       // The live table list (one hibernating WebSocket per viewer; updates are pushed)

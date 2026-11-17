@@ -1,11 +1,13 @@
 import type { Lobby } from "./lobby.ts";
 import type { Table } from "./table.ts";
+import type { SlotSession } from "./slots.ts";
 
 export interface Env {
   DB: D1Database;
   HANDS: R2Bucket; // hand histories (hands/...) and the game audio (audio/<version>/...)
   TABLE: DurableObjectNamespace<Table>;
   LOBBY: DurableObjectNamespace<Lobby>;
+  SLOTS: DurableObjectNamespace<SlotSession>; // one per player: seeds, nonce and spins
   LOGIN_LIMIT?: RateLimit; // sign-ups per IP per minute
   TURN_SECONDS?: string; // time a human has to act (default 20)
   BOT_DELAY_MS?: string; // how long bots "think" (default 1100)
