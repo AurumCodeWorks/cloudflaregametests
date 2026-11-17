@@ -313,9 +313,11 @@ input { font: inherit; color: var(--ink); }
   .table-wrap { padding: 64px 0 84px; }
   .felt { width: 100%; }
   .console { border-radius: 8px; padding: 10px; }
-  .console-main { grid-template-columns: 1fr 1fr; }
-  .raise { grid-column: 1 / -1; order: 3; padding: 0; }
-  #btn-raise { grid-column: 1 / -1; order: 4; }
+  /* Fold, Check/Call and Raise share one row, so all three are on screen without scrolling; the raise amount sits below */
+  .console-main { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  #btn-raise { order: 1; }
+  .raise { grid-column: 1 / -1; order: 2; padding: 0; }
+  .console-main > .btn { padding: 0 6px; font-size: 11.5px; letter-spacing: .06em; white-space: normal; line-height: 1.15; text-align: center; }
   .btn { height: 48px; }
   .plate { min-width: 0; gap: 6px; padding: 4px 10px 4px 4px; }
   .avatar { width: 28px; height: 28px; font-size: 12px; }
