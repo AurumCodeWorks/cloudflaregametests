@@ -106,7 +106,7 @@ export class Table extends DurableObject<Env> {
         await this.schedule("act", p.turnDeadline);
       }
     }
-    if ((!p.t.hand || p.t.hand.result) && !p.next) await this.schedule("hand", Date.now() + 600);
+    if ((!p.t.hand || p.t.hand.result) && p.next?.kind !== "hand") await this.schedule("hand", Date.now() + 600);
     await this.persist();
     this.broadcast();
     await this.reportLobby();
@@ -141,7 +141,7 @@ export class Table extends DurableObject<Env> {
       if (!p || this.connected(att.userId, ws)) return;
       p.waiting = p.waiting.filter((w) => w.userId !== att.userId);
       // A seated player who disconnects keeps their seat until the hand ends; their turn timer handles it.
-      if ((!p.t.hand || p.t.hand.result) && !p.next) await this.schedule("hand", Date.now() + 500);
+      if ((!p.t.hand || p.t.hand.result) && p.next?.kind !== "hand") await this.schedule("hand", Date.now() + 500);
       await this.persist();
       this.broadcast();
       await this.reportLobby();
@@ -261,7 +261,8 @@ export class Table extends DurableObject<Env> {
         p.turnDeadline = now + (this.connected(s.userId) ? this.turnMs : Math.min(this.turnMs, DISCONNECTED_TURN_MS));
         await this.schedule("act", p.turnDeadline);
       }
-    } else if (!p.next) {
+    } else if (p.next?.kind !== "hand") {
+      // Hand over (or none yet): replace any leftover turn timer, which would otherwise hold up the next deal
       await this.schedule("hand", now + (h?.result ? this.nextHandMs : 600));
     }
     await this.persist();
