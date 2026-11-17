@@ -142,9 +142,10 @@ function connect(tableId) {
     const msg = JSON.parse(ev.data);
     if (msg.type === "state") onState(msg);
     else if (msg.type === "error") toast(msg.message);
+    else if (msg.type === "toppedup") { toast(`Topped up with ${msg.amount.toLocaleString()} chips`); refreshMe().catch(() => {}); }
     else if (msg.type === "stood") {
       // Back to the lobby straight away; don't wait for the socket's closing handshake
-      toast(msg.amount > 0 ? `You left the table with ${msg.amount.toLocaleString()} chips` : "You're out of chips. Claim your daily chips to play again.");
+      toast(msg.amount > 0 ? `You left the table with ${msg.amount.toLocaleString()} chips` : app.user?.unlimited ? "You left the table" : "You're out of chips. Claim your daily chips to play again.");
       app.ws = null;
       ws.close();
       refreshMe().catch(() => {}).finally(() => show("lobby"));
@@ -225,6 +226,9 @@ app.cardEl = cardEl;
 function onState(s) {
   const old = app.state;
   app.state = s;
+  // Countdown to the next deal, kept on this device's clock from the time left the server reported
+  app.nextAt = s.next ? Date.now() + s.next.inMs : null;
+  app.nextTotal = s.next?.totalMs ?? 0;
   // Your buy-in just moved from your balance to the table: refresh the header balance
   if (!app.demo && (old?.you?.seat ?? -1) < 0 && s.you.seat >= 0) refreshMe().catch(() => {});
   if (s.hand && !s.hand.result) app.commits[s.hand.no] ??= s.hand.commit;
@@ -511,7 +515,8 @@ function renderActions(s) {
   if (s.you.waiting) status.innerHTML = `You'll be dealt in at the start of the next hand.`;
   else if (myTurn) status.innerHTML = `<strong>Your turn.</strong> ${L.call ? `${L.call.toLocaleString()} to call.` : "No bet to you."}`;
   else if (h && !h.result) status.innerHTML = `Waiting for <strong>${escapeHtml(s.seats[h.toAct]?.name ?? "")}</strong>…`;
-  else status.textContent = "Next hand starting soon…";
+  else status.textContent = h?.result ? `Hand #${h.no} is over` : "Next hand starting soon…";
+  renderBetween(s);
 
   $("btn-fold").disabled = !myTurn;
   $("btn-check").hidden = myTurn && !L.check;
@@ -542,6 +547,41 @@ function renderActions(s) {
     fill.style.width = `${Math.min(100, (left / (s.turnSeconds * 1000)) * 100)}%`;
   } else fill.style.width = "0";
 }
+
+// ---------------------------------------------------------------- between hands
+let countdownTimer = null;
+function renderBetween(s) {
+  const h = s.hand;
+  const me = s.seats[s.you.seat];
+  const on = !!(h?.result && app.nextAt && me);
+  $("actions").classList.toggle("is-between", on);
+  $("between").hidden = !on;
+  if (!on) { clearInterval(countdownTimer); countdownTimer = null; return; }
+  const won = h.result.payouts[s.you.seat] ?? 0;
+  $("between-sub").textContent =
+    me.stack === 0 ? (app.user?.unlimited ? "You're out of chips. Top up now, or you'll be re-bought for the next hand." : "You're out of chips. Top up to stay at the table.")
+    : won > 0 ? `You won ${won.toLocaleString()}. Your stack: ${me.stack.toLocaleString()}`
+    : `Your stack: ${me.stack.toLocaleString()}`;
+  const topUp = $("btn-topup");
+  topUp.disabled = !s.you.topUp;
+  topUp.textContent = s.you.topUp ? `Top up +${s.you.topUp.toLocaleString()}` : "Stack is full";
+  const others = s.seats.some((x, i) => x && !x.isBot && i !== s.you.seat);
+  const cont = $("btn-continue");
+  cont.disabled = s.you.ready;
+  cont.textContent = s.you.ready ? (others ? "Waiting for others…" : "Dealing…") : "Continue";
+  tickCountdown();
+  countdownTimer ??= setInterval(tickCountdown, 100);
+}
+function tickCountdown() {
+  const left = Math.max(0, (app.nextAt ?? 0) - Date.now());
+  const secs = Math.ceil(left / 1000);
+  $("count-num").textContent = secs;
+  $("between-title").textContent = left > 0 ? `Next hand in ${secs}s` : "Dealing…";
+  $("ring").style.strokeDashoffset = String(119.4 * (1 - Math.min(1, left / Math.max(1, app.nextTotal))));
+}
+$("btn-continue").addEventListener("click", () => send({ type: "ready" }));
+$("btn-topup").addEventListener("click", () => send({ type: "topup" }));
+$("btn-leave-now").addEventListener("click", () => send({ type: "leave" }));
 
 function renderFair(h) {
   const body = $("fair-body");

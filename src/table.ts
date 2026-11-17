@@ -27,13 +27,15 @@ interface Persisted {
   turnDeadline: number | null;
   leaves: string[] | null; // per-card commitment leaves for the current hand (server-side only)
   cosmetics?: Record<string, { deck: string; celebration: string }>; // what others see of each player
+  ready?: string[]; // between hands: people who pressed Continue (all ready = deal now)
 }
 const BOT_COSMETICS = { deck: "modern", celebration: "glow" };
 interface Attachment { userId: string; name: string; windowStart: number; count: number }
 
 const ACTIONS = new Set(["fold", "check", "call", "raise", "allin"]);
 const MAX_MSGS_PER_SECOND = 20;
-const DISCONNECTED_TURN_MS = 5000; // a player whose connection dropped gets a short grace period, not the full timer
+const DISCONNECTED_TURN_MS = 5000;
+const READY_DEAL_MS = 700; // when everyone presses Continue, deal after this short beat // a player whose connection dropped gets a short grace period, not the full timer
 const SUIT: Record<string, string> = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const cardText = (c: string) => (c[0] === "T" ? "10" : c[0]) + SUIT[c[1]];
 const withArticle = (hand: string) => (/^[AEIOU]/i.test(hand) ? `an ${hand.toLowerCase()}` : `a ${hand.toLowerCase()}`);
@@ -127,6 +129,8 @@ export class Table extends DurableObject<Env> {
       if (m.type === "action") await this.onAction(ws, att.userId, m);
       else if (m.type === "leave") await this.onLeave(att.userId);
       else if (m.type === "cosmetics") { await this.loadCosmetics(att.userId); await this.persist(); this.broadcast(); }
+      else if (m.type === "ready") await this.onReady(ws, att.userId);
+      else if (m.type === "topup") await this.onTopUp(ws, att.userId);
     });
   }
 
@@ -183,6 +187,40 @@ export class Table extends DurableObject<Env> {
       for (const ws of this.sockets(userId)) { this.send(ws, { type: "stood", amount: 0 }); ws.close(1000, "left"); }
     }
     await this.afterChange();
+  }
+
+  private betweenHands() { const h = this.p!.t.hand; return !h || !!h.result; }
+
+  /** Continue: once everyone at the table is ready, deal now instead of waiting out the pause. */
+  private async onReady(ws: WebSocket, userId: string) {
+    const p = this.p!;
+    if (this.seatOf(userId) < 0 || !this.betweenHands()) return this.send(ws, { type: "error", message: "You can continue once this hand is over" });
+    p.ready = [...new Set([...(p.ready ?? []), userId])];
+    const people = p.t.seats.filter((s) => s && !s.isBot && !s.cashedOut && !s.leaving && this.connected(s.userId));
+    const soon = Date.now() + READY_DEAL_MS;
+    if (people.every((s) => p.ready!.includes(s!.userId)) && p.next?.kind === "hand" && p.next.at > soon) await this.schedule("hand", soon);
+    await this.persist();
+    this.broadcast();
+  }
+
+  /** Top up your table stack to the maximum buy-in, between hands only. */
+  private async onTopUp(ws: WebSocket, userId: string) {
+    const p = this.p!;
+    const seat = this.seatOf(userId);
+    if (seat < 0 || !this.betweenHands()) return this.send(ws, { type: "error", message: "You can top up between hands" });
+    const s = p.t.seats[seat]!;
+    const amount = BUY_IN - s.stack;
+    if (amount <= 0) return this.send(ws, { type: "error", message: `Your stack is already at the ${BUY_IN} maximum` });
+    const ref = `topup:${p.tableId}:${userId}:${randomHex(6)}`;
+    const r = this.unlimited
+      ? await transfer(this.env.DB, "mint", `table:${p.tableId}`, amount, ref, "demo-topup")
+      : await transfer(this.env.DB, `user:${userId}`, `table:${p.tableId}`, amount, ref, "topup");
+    if (r === "insufficient") return this.send(ws, { type: "error", message: `You need ${amount} chips in your balance to top up` });
+    s.stack += amount;
+    this.log(`${s.name} tops up to ${BUY_IN}`);
+    this.send(ws, { type: "toppedup", amount });
+    await this.persist();
+    this.broadcast();
   }
 
   /** Apply an engine change and narrate it in the table log. Returns an error message or null. */
@@ -274,6 +312,7 @@ export class Table extends DurableObject<Env> {
     const t = p.t;
     const id = p.tableId;
     p.turnDeadline = null;
+    p.ready = [];
 
     // 1. Stand up players who are leaving, disconnected or out of chips; bots that are nearly broke
     for (let i = 0; i < SEAT_COUNT; i++) {
@@ -425,7 +464,12 @@ export class Table extends DurableObject<Env> {
       type: "state",
       tableId: p.tableId,
       turnSeconds: this.turnMs / 1000,
-      you: { seat: you, waiting: p.waiting.some((w) => w.userId === userId) },
+      you: {
+        seat: you, waiting: p.waiting.some((w) => w.userId === userId), ready: !!p.ready?.includes(userId),
+        topUp: you >= 0 && this.betweenHands() ? Math.max(0, BUY_IN - t.seats[you]!.stack) : 0,
+      },
+      // Between hands: how long until the next deal, so the table can show a countdown
+      next: h?.result && p.next?.kind === "hand" ? { inMs: Math.max(0, p.next.at - Date.now()), totalMs: this.nextHandMs } : null,
       seats: t.seats.map((s, i) =>
         s && {
           name: s.name, isBot: s.isBot, you: i === you, stack: s.stack, bet: s.bet, total: s.total,

@@ -177,6 +177,22 @@
         </div>
         <button id="btn-raise" class="btn btn-gold" data-testid="raise">Raise</button>
       </div>
+      <!-- between hands: countdown to the next deal, plus what you can do meanwhile -->
+      <div class="between" id="between" data-testid="between" hidden>
+        <div class="countdown" role="timer" aria-live="off">
+          <svg viewBox="0 0 44 44" aria-hidden="true"><circle class="ring-bg" cx="22" cy="22" r="19" /><circle class="ring" id="ring" cx="22" cy="22" r="19" /></svg>
+          <span id="count-num">5</span>
+        </div>
+        <div class="between-text">
+          <strong id="between-title">Next hand in 5s</strong>
+          <span id="between-sub"></span>
+        </div>
+        <div class="between-actions">
+          <button id="btn-leave-now" class="btn btn-quiet" data-testid="leave-now">Leave table</button>
+          <button id="btn-topup" class="btn btn-ivory" data-testid="topup">Top up</button>
+          <button id="btn-continue" class="btn btn-gold" data-testid="continue">Continue</button>
+        </div>
+      </div>
     </div>
 
     <aside class="drawer" id="drawer" aria-label="Table details">
