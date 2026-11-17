@@ -341,7 +341,7 @@ input { font: inherit; color: var(--ink); }
 .link-btn:hover { color: var(--gold-hi); }
 .shop {
   position: fixed; inset: var(--topbar) 0 0 0; z-index: 68; /* above the table's pot (61), chip/celebration layer (60) and console (65); below the top bar (70) */ overflow-y: auto; overscroll-behavior: contain;
-  background: linear-gradient(180deg, rgba(12, 10, 8, .97), rgba(8, 7, 6, .985));
+  background: linear-gradient(180deg, #0c0a08, #080706); /* fully opaque: nothing of the lobby or table shows through */
 }
 .shop-inner { max-width: 1180px; margin: 0 auto; padding: 34px 32px 64px; }
 .shop-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
@@ -463,6 +463,11 @@ input { font: inherit; color: var(--ink); }
 @media (min-width: 1400px) {
   #screen-table.drawer-open { padding-right: calc(min(380px, 92vw) + 12px); }
   #screen-table.drawer-open .drawer { box-shadow: none; }
+}
+
+/* Mid-size screens: the drawer sits over the right of the table, but the action buttons move clear of it so a turn is never hidden */
+@media (min-width: 901px) and (max-width: 1399.98px) {
+  #screen-table.drawer-open .console { width: calc(100% - min(380px, 92vw) + 12px); margin-left: 0; margin-right: auto; transition: width .5s cubic-bezier(.3, .7, .2, 1); }
 }
 
 /* Compact tables (a small felt): these come last and match the scale rules' strength, so they win when the felt is small */

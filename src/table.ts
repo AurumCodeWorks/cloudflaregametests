@@ -53,7 +53,8 @@ const MAX_MSGS_PER_SECOND = 20;
 const READY_DEAL_MS = 700; // when everyone presses Continue, deal after this short beat
 const SUIT: Record<string, string> = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const cardText = (c: string) => (c[0] === "T" ? "10" : c[0]) + SUIT[c[1]];
-const withArticle = (hand: string) => (/^[AEIOU]/i.test(hand) ? `an ${hand.toLowerCase()}` : `a ${hand.toLowerCase()}`);
+// "with a flush", "with an ace-high straight", but "with two pair", "with three of a kind"
+const withArticle = (hand: string) => (/^(two|three|four)\b/i.test(hand) ? hand.toLowerCase() : /^[AEIOU]/i.test(hand) ? `an ${hand.toLowerCase()}` : `a ${hand.toLowerCase()}`);
 
 export class Table extends DurableObject<Env> {
   private p: Persisted | null = null;
