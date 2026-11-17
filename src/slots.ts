@@ -17,10 +17,10 @@ import type { Env } from "./env.ts";
 import { balance, topUp, transfer } from "./ledger.ts";
 import { randomHex } from "./cards.ts";
 import { CLIENT_SEED, sha256Hex, spinStops } from "../public/fair.js";
-import { evaluate, MACHINES, MIN_SPIN_MS, reelSizes, STAKES } from "../public/machines.js";
+import { evaluate, formatMoney, MACHINES, MIN_SPIN_MS, reelSizes, STAKES } from "../public/machines.js";
 
 const BANK = "slots"; // the ledger account stakes go to and payouts come from
-const BANK_FLOAT = 100_000; // minted into the bank when a payout needs it (its own ledger entry, so the books balance)
+const BANK_FLOAT = 1_000_000; // minted into the bank when a payout needs it (its own ledger entry, so the books balance)
 const SESSION_IDLE_MS = 30 * 60 * 1000; // a session left idle this long is over; the next spin starts a new one
 const HISTORY_LIMIT = 2000; // spins returned per seed for re-verification
 
@@ -89,9 +89,8 @@ export class SlotSession extends DurableObject<Env> {
   async state(userId: string) {
     return this.run(userId, async (p) => ({ ...this.view(p), balance: await this.wallet(userId) }));
   }
-  private wallet(userId: string) {
-    return this.unlimited ? topUp(this.env.DB, `user:${userId}`) : balance(this.env.DB, `user:${userId}`);
-  }
+  /** The ledger balance as it is. (The demo tops a player up only when a stake needs it, see finish().) */
+  private wallet(userId: string) { return balance(this.env.DB, `user:${userId}`); }
 
   // ------------------------------------------------------------------ spinning
   async spin(userId: string, machine: unknown, stake: unknown, rid: unknown): Promise<SlotResult<{ spin: Spin; replay: boolean } & ReturnType<SlotSession["view"]> & { balance: number }>> {
@@ -100,7 +99,7 @@ export class SlotSession extends DurableObject<Env> {
       // The same press sent twice (a retry after a dropped connection): the same spin back, never a second one
       if (p.last?.rid === rid) return { ok: true, spin: p.last, replay: true, ...this.view(p), balance: p.last.balance };
       if (typeof machine !== "string" || !Object.hasOwn(MACHINES, machine)) return { ok: false, status: 400, error: "No such machine." };
-      if (typeof stake !== "number" || !STAKES.includes(stake)) return { ok: false, status: 400, error: `Stakes are ${STAKES.map((s) => `£${s}`).join(", ")} of play money per spin.` };
+      if (typeof stake !== "number" || !STAKES.includes(stake)) return { ok: false, status: 400, error: `Stakes are ${STAKES.map(formatMoney).join(", ")} of play money per spin.` };
       if (!p.clientSeed) return { ok: false, status: 409, error: "Set your seed first." };
       const now = Date.now();
       const wait = p.lastSpinAt + MIN_SPIN_MS - now;
@@ -114,7 +113,7 @@ export class SlotSession extends DurableObject<Env> {
       p.lastSpinAt = now;
       await this.persist(); // the whole spin is saved before any chips move
       const done = await this.finish(p);
-      if (!done) return { ok: false, status: 402, error: `You need £${stake} of play money for that spin.` };
+      if (!done) return { ok: false, status: 402, error: `You need ${formatMoney(stake)} of play money for that spin.` };
       return { ok: true, spin: done, replay: false, ...this.view(p), balance: done.balance };
     });
   }

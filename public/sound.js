@@ -55,7 +55,7 @@ function load(name) {
 
 /** Play an effect, optionally after `delay` ms (scheduled on the audio clock, so it stays in time). */
 export function play(name, { delay = 0, volume = 1 } = {}) {
-  if (!ctx || !settings.effects) return;
+  if (!ctx || !settings.effects || !EFFECTS.includes(name)) return;
   const at = ctx.currentTime + Math.max(0, delay) / 1000;
   load(name).then((buf) => {
     if (!buf) return;
@@ -68,6 +68,38 @@ export function play(name, { delay = 0, volume = 1 } = {}) {
     debug.played.push(name);
     if (debug.played.length > 200) debug.played.splice(0, 100);
   });
+}
+
+/**
+ * Play an effect as a seamless loop (a reel-spin bed). Returns a function that fades it out and stops it.
+ * The loop points sit just inside the file, past the short silence MP3 encoding adds at each end.
+ */
+export function loop(name, { volume = 1 } = {}) {
+  if (!ctx || !settings.effects || !EFFECTS.includes(name)) return () => {};
+  let src = null, g = null, stopped = false;
+  load(name).then((buf) => {
+    if (!buf || stopped) return;
+    src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    src.loopStart = Math.min(0.06, buf.duration / 4);
+    src.loopEnd = buf.duration - Math.min(0.06, buf.duration / 4);
+    g = ctx.createGain();
+    g.gain.setValueAtTime(0, ctx.currentTime);
+    g.gain.linearRampToValueAtTime(volume, ctx.currentTime + 0.12);
+    src.connect(g).connect(effectsBus);
+    src.start();
+    debug.played.push(name);
+  });
+  return () => {
+    stopped = true;
+    if (!src) return;
+    const now = ctx.currentTime;
+    g.gain.cancelScheduledValues(now);
+    g.gain.setValueAtTime(g.gain.value, now);
+    g.gain.linearRampToValueAtTime(0, now + 0.18);
+    src.stop(now + 0.2);
+  };
 }
 
 // ---------------------------------------------------------------- music

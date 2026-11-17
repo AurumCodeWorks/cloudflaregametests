@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="/rooms.css" />
   <link rel="stylesheet" href="/fx.css" />
   <link rel="stylesheet" href="/shell.css" />
+  <link rel="stylesheet" href="/slots.css" />
 </head>
 <body>
   <!-- Suit artwork and inks, referenced by every card -->
@@ -79,6 +80,30 @@
     <symbol id="i-chip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21M5.6 5.6l2.3 2.3M16.1 16.1l2.3 2.3M18.4 5.6l-2.3 2.3M7.9 16.1l-2.3 2.3" stroke="currentColor" stroke-width="1.6"/></symbol>
   </svg>
 
+  <!-- Lucky Sevens reel symbols -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="fg-red" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e2463d" /><stop offset="1" stop-color="#9c1b1b" /></linearGradient>
+      <linearGradient id="fg-gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f3d889" /><stop offset=".55" stop-color="#d2a84e" /><stop offset="1" stop-color="#9a7430" /></linearGradient>
+      <linearGradient id="fg-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2b2622" /><stop offset="1" stop-color="#100e0c" /></linearGradient>
+      <radialGradient id="fg-cherry" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#e8504a" /><stop offset="1" stop-color="#8f1420" /></radialGradient>
+      <radialGradient id="fg-lemon" cx=".4" cy=".3" r=".85"><stop offset="0" stop-color="#fbe36a" /><stop offset="1" stop-color="#d9a91c" /></radialGradient>
+      <radialGradient id="fg-orange" cx=".38" cy=".3" r=".85"><stop offset="0" stop-color="#ffa64d" /><stop offset="1" stop-color="#d1640f" /></radialGradient>
+      <radialGradient id="fg-plum" cx=".36" cy=".28" r=".85"><stop offset="0" stop-color="#8a5cc0" /><stop offset="1" stop-color="#43215f" /></radialGradient>
+      <symbol id="f-7" viewBox="0 0 100 100"><path d="M20 16h62v14L55 86H33l27-51H20z" fill="url(#fg-red)" stroke="#5e0f12" stroke-width="3" stroke-linejoin="round"/><path d="M25 21h52v5H25z" fill="#fff" opacity=".28"/></symbol>
+      <symbol id="f-B1" viewBox="0 0 100 100"><rect x="10" y="33" width="80" height="34" rx="4" fill="url(#fg-bar)" stroke="url(#fg-gold)" stroke-width="3"/><text x="50" y="59" text-anchor="middle" font-family="Roboto Slab, Rockwell, serif" font-weight="800" font-size="25" letter-spacing="3" fill="#e9cd86">BAR</text></symbol>
+      <g id="f-barsm"><rect x="12" y="0" width="76" height="26" rx="3.5" fill="url(#fg-bar)" stroke="url(#fg-gold)" stroke-width="2.6"/><text x="50" y="20" text-anchor="middle" font-family="Roboto Slab, Rockwell, serif" font-weight="800" font-size="19" letter-spacing="2.5" fill="#e9cd86">BAR</text></g>
+      <symbol id="f-B2" viewBox="0 0 100 100"><use href="#f-barsm" y="21"/><use href="#f-barsm" y="53"/></symbol>
+      <symbol id="f-B3" viewBox="0 0 100 100"><use href="#f-barsm" y="5"/><use href="#f-barsm" y="37"/><use href="#f-barsm" y="69"/></symbol>
+      <symbol id="f-BAR" viewBox="0 0 100 100"><use href="#f-B1"/></symbol>
+      <symbol id="f-BELL" viewBox="0 0 100 100"><circle cx="50" cy="83" r="8" fill="#9a7430"/><path d="M50 12c-4.500 0-8 3.500-8 8v2.500C30 27 23 38 23 52c0 12-4 19-11 24v5h76v-5c-7-5-11-12-11-24 0-14-7-25-19-29.500V20c0-4.500-3.500-8-8-8z" fill="url(#fg-gold)" stroke="#6b5121" stroke-width="2.500" stroke-linejoin="round"/><path d="M36 36c-4 5-6 11-6 18" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" opacity=".45"/><path d="M14 76h72" stroke="#6b5121" stroke-width="2.500"/></symbol>
+      <symbol id="f-CHERRY" viewBox="0 0 100 100"><path d="M34 60C38 40 48 26 64 14M68 64C66 44 64 28 64 14" fill="none" stroke="#3f6b2a" stroke-width="4" stroke-linecap="round"/><path d="M64 14c8-6 18-6 26-1-6 8-17 10-26 1z" fill="#4f8a35" stroke="#2f5220" stroke-width="2"/><circle cx="32" cy="70" r="19" fill="url(#fg-cherry)" stroke="#5e0f18" stroke-width="2.500"/><circle cx="68" cy="74" r="19" fill="url(#fg-cherry)" stroke="#5e0f18" stroke-width="2.500"/><ellipse cx="25" cy="62" rx="5" ry="3.500" fill="#fff" opacity=".5" transform="rotate(-30 25 62)"/><ellipse cx="61" cy="66" rx="5" ry="3.500" fill="#fff" opacity=".5" transform="rotate(-30 61 66)"/></symbol>
+      <symbol id="f-LEMON" viewBox="0 0 100 100"><path d="M12 56C12 36 30 22 52 22c12 0 22 4 28 10l10-2-3 11c2 5 3 10 3 15 0 18-17 28-38 28-12 0-22-3-29-9l-10 2 3-11c-2-3-4-6-4-10z" fill="url(#fg-lemon)" stroke="#8f6d0c" stroke-width="2.500" stroke-linejoin="round"/><ellipse cx="40" cy="40" rx="12" ry="5" fill="#fff" opacity=".45" transform="rotate(-18 40 40)"/></symbol>
+      <symbol id="f-ORANGE" viewBox="0 0 100 100"><circle cx="50" cy="56" r="33" fill="url(#fg-orange)" stroke="#8a3f08" stroke-width="2.500"/><path d="M50 24c3-9 12-13 22-11-2 9-11 14-22 11z" fill="#4f8a35" stroke="#2f5220" stroke-width="2"/><ellipse cx="37" cy="42" rx="10" ry="5" fill="#fff" opacity=".4" transform="rotate(-30 37 42)"/><circle cx="50" cy="25" r="2.500" fill="#5a3a12"/></symbol>
+      <symbol id="f-PLUM" viewBox="0 0 100 100"><path d="M52 24c2-7 6-11 12-13" fill="none" stroke="#5a3a12" stroke-width="4" stroke-linecap="round"/><path d="M50 22c18 0 32 14 32 33S68 90 50 90 18 74 18 55s14-33 32-33z" fill="url(#fg-plum)" stroke="#2c1440" stroke-width="2.500"/><path d="M50 24c-5 12-6 40-1 64" fill="none" stroke="#2c1440" stroke-width="2" opacity=".55"/><ellipse cx="35" cy="42" rx="9" ry="5" fill="#fff" opacity=".35" transform="rotate(-35 35 42)"/></symbol>
+    </defs>
+  </svg>
+
   <header class="topbar">
     <div class="brand">
       <span class="brand-crest"><svg viewBox="0 0 100 100"><use href="#s-s" /></svg></span>
@@ -115,9 +140,9 @@
   <section id="screen-login" class="screen hero" hidden>
     <div class="hero-art" aria-hidden="true"></div>
     <div class="hero-copy">
-      <p class="eyebrow">No-limit Texas Hold'em</p>
+      <p class="eyebrow">Hold'em and slot machines</p>
       <h1>Pull up a chair.</h1>
-      <p class="lede">Four seats, proper chips, and a shuffle you can verify yourself. Computer players are always labelled.</p>
+      <p class="lede">Four seats, proper chips, and a shuffle you can verify yourself. Computer players are always labelled. Slot machines with published odds, checked the same way.</p>
       <form id="login-form" class="field-row">
         <label for="name" class="sr-only">Display name</label>
         <input id="name" name="name" maxlength="16" required autocomplete="off" placeholder="Your table name" data-testid="name" />
@@ -133,19 +158,39 @@
     <div class="hero-copy">
       <p class="eyebrow">Welcome back</p>
       <h1 id="lobby-name"></h1>
-      <div class="table-card">
-        <div>
-          <div class="tc-title">Hold'em · No Limit</div>
-          <div class="tc-meta">Blinds 5/10 · 4 seats · Buy-in 500</div>
+      <section class="games" aria-labelledby="games-h" data-testid="games">
+        <h2 id="games-h" class="tables-h">Choose a game <span>all play money</span></h2>
+        <div class="table-card game-card" data-game="poker">
+          <span class="g-emblem" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#s-s" /></svg></span>
+          <div class="g-text">
+            <div class="tc-title">Hold'em · No Limit</div>
+            <div class="tc-meta">Blinds 5/10 · 4 seats · Buy-in 500</div>
+          </div>
+          <button id="play-btn" class="btn btn-gold" data-testid="play">Take a seat</button>
         </div>
-        <button id="play-btn" class="btn btn-gold" data-testid="play">Take a seat</button>
-      </div>
+        <div class="table-card game-card" data-game="sevens">
+          <span class="g-emblem" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#f-7" /></svg></span>
+          <div class="g-text">
+            <div class="tc-title">Lucky Sevens <small>Classic slot</small></div>
+            <div class="tc-meta" data-game-meta="sevens"></div>
+          </div>
+          <button class="btn btn-gold" data-testid="play-sevens">Play</button>
+        </div>
+        <div class="table-card game-card" data-game="royal">
+          <span class="g-emblem" aria-hidden="true"><svg viewBox="0 0 100 100"><use href="#s-h" /></svg></span>
+          <div class="g-text">
+            <div class="tc-title">Royal Reels <small>Poker-hand slot</small></div>
+            <div class="tc-meta" data-game-meta="royal"></div>
+          </div>
+          <button class="btn btn-gold" data-testid="play-royal">Play</button>
+        </div>
+      </section>
       <div class="lobby-actions">
         <button id="private-btn" class="btn btn-quiet btn-small" data-testid="private">Open a private table</button>
-        <span class="fine-inline">Play with friends: you get a link to share.</span>
+        <span class="fine-inline">Poker with friends: you get a link to share.</span>
       </div>
       <section class="tables" aria-labelledby="tables-h">
-        <h2 id="tables-h" class="tables-h">Tables in play <span id="tables-count"></span></h2>
+        <h2 id="tables-h" class="tables-h">Poker tables in play <span id="tables-count"></span></h2>
         <div id="tables" class="tables-list" data-testid="tables"><p class="tables-empty">Loading tables…</p></div>
       </section>
       <div class="daily" id="daily" hidden>
@@ -245,6 +290,94 @@
         <div class="log" id="log" data-testid="log"></div>
       </section>
     </aside>
+  </section>
+
+  <!-- Slot machines -->
+  <section id="screen-slots" class="screen" hidden>
+    <div class="slot-wrap">
+      <div class="slot-head">
+        <div class="slot-title">
+          <p class="eyebrow">Slot machine · play money</p>
+          <h2 id="slot-name"></h2>
+          <p class="slot-blurb" id="slot-blurb"></p>
+        </div>
+        <div class="slot-tools">
+          <button id="slot-info-btn" class="quiet-btn" data-testid="slot-info"><svg class="ico"><use href="#i-list" /></svg><span>Paytable and odds</span></button>
+          <button id="slot-fair-btn" class="fair-chip" data-state="locked" data-testid="slot-fair"><svg class="ico"><use href="#i-lock" /></svg><span id="slot-fair-text">Seed locked</span></button>
+        </div>
+      </div>
+
+      <div class="cabinet" id="cabinet">
+        <div class="marquee" aria-hidden="true"><span id="slot-marquee"></span></div>
+        <div class="reel-window" id="reel-window" data-testid="reels"></div>
+        <div class="slot-result" id="slot-result" data-testid="slot-result" role="status" aria-live="polite"></div>
+      </div>
+
+      <div class="slot-console">
+        <div class="stakes" id="stakes" role="group" aria-label="Stake per spin, play money">
+          <span class="stake-label">Stake per spin<small>Play money. No real stakes or prizes.</small></span>
+        </div>
+        <button id="spin-btn" class="btn btn-gold spin-key" data-testid="spin" disabled>Spin</button>
+      </div>
+
+      <div class="session-bar" id="session-bar" data-testid="session">
+        <div class="sess"><span>Time played</span><strong id="sess-time" data-testid="sess-time">0:00</strong></div>
+        <div class="sess"><span>Spins</span><strong id="sess-spins">0</strong></div>
+        <div class="sess"><span>Staked</span><strong id="sess-staked">0p</strong></div>
+        <div class="sess"><span>Returned</span><strong id="sess-returned">0p</strong></div>
+        <div class="sess net"><span>Net this session</span><strong id="sess-net" data-testid="sess-net">0p</strong></div>
+        <button id="slot-stop" class="btn btn-ivory btn-small" data-testid="slot-stop">Stop playing</button>
+      </div>
+    </div>
+
+    <aside class="drawer slot-drawer" id="slot-drawer" aria-label="Machine details" data-tab="">
+      <div class="drawer-head"><nav class="slot-tabs" role="tablist"><button type="button" data-slot-tab="info" data-testid="tab-info">Paytable and odds</button><button type="button" data-slot-tab="fair" data-testid="tab-fair">Fair play</button></nav><button class="icon-btn" id="slot-drawer-close" aria-label="Close"><svg class="ico"><use href="#i-close" /></svg></button></div>
+      <div class="slot-drawer-body" data-pane="info">
+        <section class="drawer-sec"><h4>Paytable <small>win × your stake, middle row</small></h4><div id="slot-paytable" class="paytable" data-testid="paytable"></div></section>
+        <section class="drawer-sec"><h4>Return and odds</h4><div id="slot-odds" class="slot-copy"></div></section>
+        <section class="drawer-sec"><h4>The reel strips <small>exactly what is spun</small></h4><div id="slot-strips" class="strips" data-testid="strips"></div></section>
+        <section class="drawer-sec"><h4>How this machine plays</h4><div class="slot-copy">
+          <p>One press is one spin: there is no autoplay, and no way to speed a spin up or stop the reels early. Each spin takes at least 2.5 seconds.</p>
+          <p>If a spin returns your stake or less, it is shown as a return, not a win: no fanfare.</p>
+          <p id="slot-stakes-copy"></p>
+        </div></section>
+      </div>
+      <div class="slot-drawer-body" data-pane="fair">
+        <section class="drawer-sec fair"><h4><svg class="ico"><use href="#i-shield" /></svg>Provably fair spins</h4><div class="slot-copy">
+          <p>Before you spin, the server locks in a secret seed and shows you its fingerprint. Your browser adds a seed of its own. Each spin is worked out from both seeds and a counter, so neither side can choose a result.</p>
+          <p>When you reveal the server seed, your browser re-plays every spin made with it and checks each one. The server then moves to the next seed, whose fingerprint you were already shown.</p>
+        </div>
+        <dl class="fair-grid">
+          <dt>Server seed fingerprint</dt><dd id="fair-commit"></dd>
+          <dt>Next seed's fingerprint</dt><dd id="fair-next"></dd>
+          <dt>Spins with this pair</dt><dd id="fair-nonce" data-testid="fair-nonce">0</dd>
+        </dl>
+        <form id="fair-form" class="fair-form">
+          <label for="fair-seed">Your seed</label>
+          <input id="fair-seed" data-testid="fair-seed" maxlength="64" autocomplete="off" spellcheck="false" />
+          <button class="btn btn-ivory btn-small" id="fair-rotate" data-testid="fair-rotate" type="submit">Use this seed</button>
+        </form>
+        <div class="fair-body" id="fair-result" data-testid="fair-result"></div>
+        </section>
+        <section class="drawer-sec"><h4 id="fair-past-h" hidden>Revealed seeds</h4><div id="fair-past" class="seed-list" data-testid="fair-past"></div></section>
+      </div>
+    </aside>
+
+    <div class="slot-summary" id="slot-summary" role="dialog" aria-modal="true" aria-labelledby="sum-h" hidden>
+      <div class="sum-card" data-testid="slot-summary">
+        <p class="eyebrow">Session over</p>
+        <h3 id="sum-h">Thanks for playing</h3>
+        <dl>
+          <dt>Time played</dt><dd id="sum-time"></dd>
+          <dt>Spins</dt><dd id="sum-spins"></dd>
+          <dt>Staked</dt><dd id="sum-staked"></dd>
+          <dt>Returned</dt><dd id="sum-returned"></dd>
+          <dt>Net result</dt><dd id="sum-net"></dd>
+        </dl>
+        <p class="fine">Play money only: nothing was won or lost for real.</p>
+        <button class="btn btn-gold" id="sum-done" data-testid="sum-done">Back to the games</button>
+      </div>
+    </div>
   </section>
 
   <!-- Cosmetics shop -->

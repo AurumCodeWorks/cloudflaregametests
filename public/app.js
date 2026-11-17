@@ -3,6 +3,7 @@ import * as FX from "./fx.js";
 import { createShop } from "./shop.js";
 import { newSeed, verifyDeal } from "./fair.js";
 import * as Sound from "./sound.js";
+import { createSlots } from "./slots.js";
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const RANK = { T: "10" };
@@ -105,7 +106,7 @@ function newLogLines(oldLog = [], newLog = []) {
 
 // ---------------------------------------------------------------- screens
 function show(screen) {
-  for (const s of ["login", "lobby", "table"]) $(`screen-${s}`).hidden = s !== screen;
+  for (const s of ["login", "lobby", "table", "slots"]) $(`screen-${s}`).hidden = s !== screen;
   for (const id of ["leave-btn", "fair-btn", "history-btn"]) $(id).hidden = screen !== "table";
   $("invite-btn").hidden = screen !== "table" || !app.tableId?.startsWith("p-") || app.watching;
   if (screen === "lobby") openLobbyFeed(); else closeLobbyFeed(); // the live table list only while you're looking at it
@@ -939,6 +940,7 @@ function applyEquipped(eq) {
   setChips(v(eq.chips));
   setCelebration(v(eq.celebration));
   document.querySelectorAll(".hero-art").forEach((a) => a.replaceChildren());
+  slots.redraw(); // Royal Reels is drawn with your deck
   if (!$("screen-table").hidden) {
     send({ type: "cosmetics" }); // so the table shows your new card backs/celebration to everyone
     if (app.state) { render(); drawPools(app.state, []); }
@@ -952,6 +954,12 @@ async function loadShop() {
     console.error("shop", err);
   }
 }
+
+// ---------------------------------------------------------------- slot machines
+app.backToLobby = () => refreshMe().catch(() => {}).finally(() => show("lobby"));
+app.onSlotBalance = (bal) => { if (app.user && !app.user.unlimited) { app.user.balance = bal; $("wallet-balance").textContent = bal.toLocaleString(); } };
+const slots = createSlots({ api, toast, cardEl, FX, Sound, show, app });
+app.slots = slots;
 
 // ---------------------------------------------------------------- showroom (demo mode)
 let demoTimers = [];
@@ -1034,6 +1042,8 @@ async function start() {
         connect(app.user.table, { resume: true });
         return;
       }
+      const game = new URLSearchParams(location.search).get("game");
+      if (game) { await slots.open(game); if (!$("screen-slots").hidden) return; }
       show("lobby");
       return;
     } catch {

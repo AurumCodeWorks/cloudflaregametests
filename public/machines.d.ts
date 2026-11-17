@@ -2,6 +2,7 @@
 export interface Pay { key: string; label: string; mult: number; show?: string[]; example?: string[] }
 export interface Machine { id: string; name: string; kind: "classic" | "cards"; rows: number; blurb: string; reels: string[][]; pays: Pay[] }
 export const STAKES: number[];
+export function formatMoney(pence: number): string;
 export const MIN_SPIN_MS: number;
 export const MACHINES: Record<string, Machine>;
 export const MACHINE_IDS: string[];

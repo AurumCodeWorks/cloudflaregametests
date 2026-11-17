@@ -564,6 +564,24 @@ const rand = (a, b) => a + Math.random() * (b - a);
 // ------------------------------------------------------------------ celebrations
 export const CELEBRATIONS = ["glow", "chipshower", "confetti", "spotlight", "fireworks", "goldrush"];
 
+/**
+ * Lucky Sevens' own celebration: brass coins thrown up from the reels. Sized to the win:
+ * a short handful for a medium win, a longer fountain for a big one, nothing at all for less.
+ */
+export function coinBurst(el, tier) {
+  const ms = tier === "big" ? 2200 : tier === "medium" ? 700 : 0;
+  if (reduced || !ms) return Promise.resolve();
+  const r = el.getBoundingClientRect();
+  const every = tier === "big" ? 7 : 14; // one coin per this many milliseconds
+  return runParticles({
+    duration: ms,
+    spawn: (t, dt) => Array.from({ length: particles(Math.max(1, Math.round(dt / every))) }, () => ({
+      shape: "coin", x: r.left + r.width * rand(0.15, 0.85), y: r.bottom - 10, vx: rand(-0.3, 0.3), vy: rand(-1.05, -0.6), g: 0.0024,
+      size: rand(6, 9), rot: 0, vf: rand(0.008, 0.02), age: 0, life: 2200,
+    })),
+  });
+}
+
 function floatText(text, x, y, delay = 0) {
   if (reduced) return;
   const el = document.createElement("div");

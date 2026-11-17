@@ -10,7 +10,7 @@
 import assert from "node:assert/strict";
 import { createHmac, randomBytes } from "node:crypto";
 import { CLIENT_SEED, digestWords, sha256Hex, spinMessage, spinStops, stopsFromWords, verifySpin } from "../public/fair.js";
-import { celebrationTier, evaluate, exactRtp, lineOf, MACHINES, MACHINE_IDS, MIN_SPIN_MS, reelSizes, STAKES } from "../public/machines.js";
+import { celebrationTier, evaluate, exactRtp, formatMoney, lineOf, MACHINES, MACHINE_IDS, MIN_SPIN_MS, reelSizes, STAKES } from "../public/machines.js";
 
 let passed = 0;
 async function test(name: string, fn: () => void | Promise<void>) {
@@ -37,9 +37,12 @@ const PUBLISHED: Record<string, { combos: number; totalMult: number; rtp: string
   royal: { combos: 121_000, totalMult: 114_923, rtp: "94.98" },
 };
 
-await test("stakes are £1, £2 and £5, never more; spins take at least 2.5 s", () => {
-  assert.deepEqual(STAKES, [1, 2, 5]);
-  assert.ok(Math.max(...STAKES) <= 5);
+await test("stakes run from 10p to £5, never more, and every win scales exactly with the stake; spins take at least 2.5 s", () => {
+  assert.deepEqual(STAKES, [10, 20, 50, 100, 200, 500]); // play-money pence
+  assert.ok(Math.max(...STAKES) <= 500);
+  assert.deepEqual([10, 50, 100, 250, 500, 125000].map(formatMoney), ["10p", "50p", "£1", "£2.50", "£5", "£1,250"]);
+  // a payout is (whole-number multiple) x (whole pence), so it is exact at every stake and proportional to it
+  for (const id of MACHINE_IDS) for (const pay of MACHINES[id].pays) for (const st of STAKES) assert.equal((pay.mult * st) / st, pay.mult);
   assert.ok(MIN_SPIN_MS >= 2500);
 });
 
@@ -177,7 +180,7 @@ await test("a return of the stake or less is never celebrated; real wins scale w
     assert.equal(celebrationTier(stake, stake * 8), "medium");
     assert.equal(celebrationTier(stake, stake * 40), "big");
   }
-  assert.equal(celebrationTier(5, 4), "none");
+  assert.equal(celebrationTier(50, 40), "none");
   // on Royal Reels a pair of jacks or better only returns the stake: it must present as "none"
   assert.equal(MACHINES.royal.pays.find((p) => p.key === "jacks")!.mult, 1);
 });

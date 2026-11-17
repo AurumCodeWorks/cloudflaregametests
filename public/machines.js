@@ -8,8 +8,18 @@
 //   - the payout depends only on the stops, never on the player, their history or their cosmetics
 //   - the return to player is computed exactly by going through every combination of stops (exactRtp)
 
-/** Play-money stakes per spin, in chips (1 chip = £1 of play money). Capped at £5, as UK online slots are. */
-export const STAKES = [1, 2, 5];
+/**
+ * Play-money stakes per spin, in pence: 10p, 20p, 50p, £1, £2, £5 (100 play chips = £1, so one chip is a penny
+ * and every payout is a whole number of chips at every stake). Capped at £5, as UK online slots are.
+ * A win is always the paytable multiple of the stake, so it scales exactly with what was staked.
+ */
+export const STAKES = [10, 20, 50, 100, 200, 500];
+/** Pence as money: 10 -> "10p", 100 -> "£1", 250 -> "£2.50", 125000 -> "£1,250". */
+export function formatMoney(pence) {
+  const p = Math.abs(pence);
+  if (p < 100) return `${p}p`;
+  return `£${(p / 100).toLocaleString("en-GB", { minimumFractionDigits: p % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
+}
 /** UK rules: at least 2.5 seconds from the start of one spin to the start of the next. Enforced by the server too. */
 export const MIN_SPIN_MS = 2500;
 
@@ -23,7 +33,7 @@ const SEVENS_PAYS = [
   { key: "ORANGE", label: "Three oranges", show: ["ORANGE", "ORANGE", "ORANGE"], mult: 10 },
   { key: "LEMON", label: "Three lemons", show: ["LEMON", "LEMON", "LEMON"], mult: 8 },
   { key: "CHERRY", label: "Three cherries", show: ["CHERRY", "CHERRY", "CHERRY"], mult: 8 },
-  { key: "ANYBAR", label: "Any three bars", show: ["BAR", "BAR", "BAR"], mult: 5 },
+  { key: "ANYBAR", label: "Any mix of three bars", show: ["B1", "B2", "B3"], mult: 5 },
   { key: "CHERRY2", label: "Cherries on reels 1 and 2", show: ["CHERRY", "CHERRY", "ANY"], mult: 4 },
   { key: "CHERRY1", label: "Cherry on reel 1", show: ["CHERRY", "ANY", "ANY"], mult: 2 },
 ];
