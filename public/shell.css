@@ -354,7 +354,7 @@ input { font: inherit; color: var(--ink); }
 .link-btn { margin-top: 18px; color: var(--gold); font: 700 14px var(--ui); letter-spacing: .01em; }
 .link-btn:hover { color: var(--gold-hi); }
 .shop {
-  position: fixed; inset: var(--topbar) 0 0 0; z-index: 50; overflow-y: auto; overscroll-behavior: contain;
+  position: fixed; inset: var(--topbar) 0 0 0; z-index: 68; /* above the table's pot (61), chip/celebration layer (60) and console (65); below the top bar (70) */ overflow-y: auto; overscroll-behavior: contain;
   background: linear-gradient(180deg, rgba(12, 10, 8, .97), rgba(8, 7, 6, .985));
 }
 .shop-inner { max-width: 1180px; margin: 0 auto; padding: 34px 32px 64px; }
