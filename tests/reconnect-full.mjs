@@ -42,5 +42,19 @@ check(resumed && !resumed.seats.some((x) => ["Fae", "Gus", "Hal"].includes(x?.na
 last.ws.send(JSON.stringify({ type: "leave" }));
 await wait(300);
 last.ws.close();
+
+// A table where everyone has dropped (seats held, nobody playing) must not swallow newcomers
+await wait(61000); // sign-up rate limit
+const g1 = await player("Jo"), g2 = await player("Kai");
+check(g1.table === g2.table, "two people at one table");
+g1.ws.close(); g2.ws.close(); // both drop: their seats are held, nobody is playing there
+await wait(3000);
+const newcomer = await player("Lux");
+check(newcomer.table !== g1.table, `quick seat puts a newcomer at a table with people actually playing, not one of held seats (${newcomer.table} vs ${g1.table})`);
+const dealt = await until(() => { const s = newcomer.states.at(-1); return s?.hand && !s.hand.result && s.seats[s.you.seat]?.inHand ? s : null; }, 15000);
+check(!!dealt, "and the newcomer is dealt in straight away");
+newcomer.ws.send(JSON.stringify({ type: "leave" }));
+await wait(300);
+newcomer.ws.close();
 console.log(failures ? `\n${failures} FAILURES` : "\nALL FULL-TABLE CHECKS PASSED");
 process.exit(failures ? 1 : 0);

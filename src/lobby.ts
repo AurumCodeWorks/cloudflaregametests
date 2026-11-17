@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { SEAT_COUNT } from "./holdem.ts";
+import { SEAT_COUNT as SEATS } from "./holdem.ts";
 import type { Env } from "./env.ts";
 
 /** What the lobby list shows for a table (reported by the table itself). */
@@ -22,6 +22,7 @@ export interface TableSummary {
 /** Private tables have long unguessable ids, never appear in the list, and quick seat never uses them. */
 export const isPrivateTable = (id: string) => id.startsWith("p-");
 export const TABLE_ID = /^(t-[0-9a-f]{8}|p-[0-9a-f]{16})$/;
+const RESERVE_MS = 10000;
 
 /**
  * Single-instance Durable Object. It sends players to a table with a free seat (filling tables first),
@@ -35,32 +36,40 @@ export class Lobby extends DurableObject<Env> {
     ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
+  /**
+   * Quick seat: the public table with the most people actually playing that still has a free seat. Seats held
+   * for players who dropped count as taken but not as "playing", so a table where everyone is away never
+   * swallows newcomers; with no suitable table, a new one opens (bots fill it until people join).
+   */
   async assign(): Promise<string> {
-    const tables = (await this.ctx.storage.get<Record<string, number>>("tables")) ?? {};
-    const open = Object.entries(tables)
-      .filter(([id, humans]) => humans < SEAT_COUNT && !isPrivateTable(id))
-      .sort((a, b) => b[1] - a[1]);
-    const id = open[0]?.[0] ?? `t-${crypto.randomUUID().slice(0, 8)}`;
-    tables[id] = (tables[id] ?? 0) + 1; // reserve a seat until the table reports its real count
-    await this.ctx.storage.put("tables", tables);
+    const st = this.ctx.storage;
+    const now = Date.now();
+    const reserved = (await st.get<Record<string, { n: number; at: number }>>("reserved")) ?? {};
+    for (const k of Object.keys(reserved)) if (reserved[k].at < now - RESERVE_MS) delete reserved[k];
+    const listed = await this.list();
+    // People present: seated and not away, or waiting to be dealt in; plus anyone just sent there
+    const open = listed.map((t) => ({ id: t.id, playing: t.people - t.away + t.waiting + (reserved[t.id]?.n ?? 0), taken: t.people + t.waiting + (reserved[t.id]?.n ?? 0), seats: t.seats }));
+    // A table opened moments ago hasn't reported yet: the people sent to it still count, so arrivals group up
+    for (const [id, r] of Object.entries(reserved)) if (!isPrivateTable(id) && !listed.some((t) => t.id === id)) open.push({ id, playing: r.n, taken: r.n, seats: SEATS });
+    open.sort((a, b) => b.playing - a.playing);
+    const best = open.find((t) => t.playing > 0 && t.taken < t.seats);
+    const id = best?.id ?? `t-${crypto.randomUUID().slice(0, 8)}`;
+    // Hold the seat for a few seconds, until the table reports the newcomer itself
+    reserved[id] = { n: (reserved[id]?.n ?? 0) + 1, at: now };
+    await st.put("reserved", reserved);
     return id;
   }
 
   /** A new private table: share its link to play with friends. */
   async createPrivate(): Promise<string> {
-    const id = `p-${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
-    const tables = (await this.ctx.storage.get<Record<string, number>>("tables")) ?? {};
-    tables[id] = 1;
-    await this.ctx.storage.put("tables", tables);
-    return id;
+    return `p-${crypto.randomUUID().replace(/-/g, "").slice(0, 16)}`;
   }
 
   /** A table reports how many people it holds, who they are (seated, held while away, or waiting) and its summary. */
   async report(tableId: string, humans: number, members: string[] = [], summary?: TableSummary): Promise<void> {
     const st = this.ctx.storage;
-    const tables = (await st.get<Record<string, number>>("tables")) ?? {};
-    if (humans <= 0) delete tables[tableId];
-    else tables[tableId] = humans;
+    const reserved = (await st.get<Record<string, { n: number; at: number }>>("reserved")) ?? {};
+    if (reserved[tableId]) { delete reserved[tableId]; await st.put("reserved", reserved); } // the table has counted its newcomers itself
     const before = (await st.get<string[]>(`members:${tableId}`)) ?? [];
     const gone = before.filter((u) => !members.includes(u));
     if (gone.length) {
@@ -68,7 +77,7 @@ export class Lobby extends DurableObject<Env> {
       const stale = gone.filter((u) => where.get(`where:${u}`) === tableId);
       if (stale.length) await st.delete(stale.map((u) => `where:${u}`));
     }
-    const writes: Record<string, unknown> = { tables };
+    const writes: Record<string, unknown> = {};
     for (const u of members) writes[`where:${u}`] = tableId;
     if (members.length) writes[`members:${tableId}`] = members;
     else await st.delete(`members:${tableId}`);

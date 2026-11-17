@@ -383,7 +383,10 @@ export class Table extends DurableObject<Env> {
         const planned = plan && plan.hand === h.no && plan.step === h.actions.length && plan.seat === h.toAct && p.next?.kind === "act";
         if (!planned) await this.schedule("act", now + this.botDelay(this.planBot(h.toAct).difficulty));
       } else {
-        p.turnDeadline = now + this.turnMs; // the full time, connected or not: a dropped player usually reconnects within seconds
+        // A dropped player gets one turn's worth of time counted from when they dropped (they usually reconnect
+        // within seconds); once that's used up, their later turns act at once instead of holding everyone up
+        const awayFor = s.awaySince && !this.connected(s.userId) ? now - s.awaySince : 0;
+        p.turnDeadline = now + Math.max(1000, this.turnMs - awayFor);
         await this.schedule("act", p.turnDeadline);
       }
     } else if (p.next?.kind !== "hand") {
