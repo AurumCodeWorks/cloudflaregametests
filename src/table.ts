@@ -12,7 +12,8 @@ import {
   act, BIG_BLIND, BUY_IN, DEFAULT_RAKE, historyOf, legalActions, newSeat, newTable, potTotal, revealFor, SEAT_COUNT, startHand, timeoutAction,
 } from "./holdem.ts";
 import type { Action, ActionRecord, RakeRule, TableState } from "./holdem.ts";
-import { BOT_NAMES, decide } from "./bot.ts";
+import { BOT_NAMES, botView, decide } from "./bot.ts";
+import { permutationFrom } from "../public/fair.js";
 import { transfer } from "./ledger.ts";
 import { tableCosmetics } from "./shop.ts";
 
@@ -28,6 +29,9 @@ interface Persisted {
   leaves: string[] | null; // per-card commitment leaves for the current hand (server-side only)
   cosmetics?: Record<string, { deck: string; celebration: string }>; // what others see of each player
   ready?: string[]; // between hands: people who pressed Continue (all ready = deal now)
+  botPlan?: { hand: number; step: number; seat: number; action: Action } | null; // the bot's move, decided when its turn began
+  // The next hand's deck, committed before any player seed arrives; seeds are collected until the deal
+  pending?: { serverDeck: string[]; salts: string[]; leaves: string[]; commit: string; seeds: Record<string, string> } | null;
 }
 const BOT_COSMETICS = { deck: "modern", celebration: "glow" };
 interface Attachment { userId: string; name: string; windowStart: number; count: number }
@@ -55,7 +59,16 @@ export class Table extends DurableObject<Env> {
   private get turnMs() { return Number(this.env.TURN_SECONDS ?? 20) * 1000; }
   private get nextHandMs() { return Number(this.env.NEXT_HAND_MS ?? 5500); }
   private get unlimited() { return this.env.UNLIMITED === "1"; }
-  private botDelay() { return Number(this.env.BOT_DELAY_MS ?? 1100) * (0.7 + Math.random() * 0.8); }
+  /** Bots "think" longer over close calls and act quickly on obvious ones. */
+  private botDelay(difficulty: number) { return Number(this.env.BOT_DELAY_MS ?? 1100) * (0.55 + 0.9 * difficulty) * (0.85 + Math.random() * 0.3); }
+  /** Decide a bot's move once, when its turn begins. The bot sees only what a person in its seat could. */
+  private planBot(seat: number) {
+    const h = this.p!.t.hand!;
+    const view = botView(this.p!.t, seat, BIG_BLIND);
+    const d = view ? decide(view) : { action: { type: "fold" } as Action, difficulty: 0 };
+    this.p!.botPlan = { hand: h.no, step: h.actions.length, seat, action: d.action };
+    return d;
+  }
   private rakeRule(): RakeRule {
     const percent = Number(this.env.RAKE_PERCENT ?? 0);
     return percent > 0 ? { ...DEFAULT_RAKE, percent } : { percent: 0, cap: 0, noFlopNoDrop: true };
@@ -122,7 +135,7 @@ export class Table extends DurableObject<Env> {
     ws.serializeAttachment(att);
     if (att.count > MAX_MSGS_PER_SECOND) { ws.close(1008, "Too many messages"); return; }
     if (typeof msg !== "string" || msg.length > 300) { ws.close(1009, "Message too large"); return; }
-    let m: { type?: string; action?: string; to?: unknown };
+    let m: { type?: string; action?: string; to?: unknown; commit?: unknown; seed?: unknown };
     try { m = JSON.parse(msg); } catch { this.send(ws, { type: "error", message: "Bad message" }); return; }
     await this.run(async () => {
       if (!this.p) return;
@@ -131,6 +144,7 @@ export class Table extends DurableObject<Env> {
       else if (m.type === "cosmetics") { await this.loadCosmetics(att.userId); await this.persist(); this.broadcast(); }
       else if (m.type === "ready") await this.onReady(ws, att.userId);
       else if (m.type === "topup") await this.onTopUp(ws, att.userId);
+      else if (m.type === "seed") await this.onSeed(att.userId, m.commit, m.seed);
     });
   }
 
@@ -190,6 +204,24 @@ export class Table extends DurableObject<Env> {
   }
 
   private betweenHands() { const h = this.p!.t.hand; return !h || !!h.result; }
+
+  /** A player's random contribution to the next shuffle: one per person, for the deck committed right now. */
+  private async onSeed(userId: string, commit: unknown, seed: unknown) {
+    const pend = this.p!.pending;
+    if (!pend || commit !== pend.commit || typeof seed !== "string" || !/^[0-9a-f]{32}$/.test(seed)) return;
+    if (this.seatOf(userId) < 0 && !this.p!.waiting.some((w) => w.userId === userId)) return;
+    if (pend.seeds[userId]) return; // can't be swapped once given
+    pend.seeds[userId] = seed;
+    await this.persist();
+  }
+
+  /** Shuffle and commit to the next hand's deck now, so players can add their seeds before the deal. */
+  private async prepareDeck() {
+    const serverDeck = secureShuffle(freshDeck());
+    const salts = serverDeck.map(() => randomHex(8));
+    const { commit, leaves } = await commitDeck(serverDeck, salts);
+    this.p!.pending = { serverDeck, salts, leaves, commit, seeds: {} };
+  }
 
   /** Continue: once everyone at the table is ready, deal now instead of waiting out the pause. */
   private async onReady(ws: WebSocket, userId: string) {
@@ -263,7 +295,11 @@ export class Table extends DurableObject<Env> {
         const seat = h.toAct;
         const s = p.t.seats[seat]!;
         if (s.isBot) {
-          this.apply(() => act(p.t, seat, decide(p.t, seat)));
+          const plan = p.botPlan;
+          const fresh = plan && plan.hand === h.no && plan.step === h.actions.length && plan.seat === seat;
+          const action = fresh ? plan.action : this.planBot(seat).action;
+          p.botPlan = null;
+          if (this.apply(() => act(p.t, seat, action))) this.apply(() => act(p.t, seat, legalActions(p.t, seat)!.check ? { type: "check" } : { type: "fold" }));
         } else if (Date.now() >= (p.turnDeadline ?? 0) - 50) {
           this.apply(() => { timeoutAction(p.t, seat); });
           this.log(`${s.name} ran out of time`);
@@ -294,7 +330,10 @@ export class Table extends DurableObject<Env> {
       const s = p.t.seats[h.toAct]!;
       if (s.isBot) {
         p.turnDeadline = null;
-        await this.schedule("act", now + this.botDelay());
+        // Plan once per turn; if this turn is already planned and timed, leave its timer alone
+        const plan = p.botPlan;
+        const planned = plan && plan.hand === h.no && plan.step === h.actions.length && plan.seat === h.toAct && p.next?.kind === "act";
+        if (!planned) await this.schedule("act", now + this.botDelay(this.planBot(h.toAct).difficulty));
       } else {
         p.turnDeadline = now + (this.connected(s.userId) ? this.turnMs : Math.min(this.turnMs, DISCONNECTED_TURN_MS));
         await this.schedule("act", p.turnDeadline);
@@ -383,18 +422,21 @@ export class Table extends DurableObject<Env> {
     }
     await Promise.all(buyIns);
 
-    // 5. Shuffle, publish the deck fingerprint, deal
-    const deck = secureShuffle(freshDeck());
-    const salts = deck.map(() => randomHex(8));
-    const { commit, leaves } = await commitDeck(deck, salts);
-    p.leaves = leaves;
-    if (!startHand(t, deck, salts, commit)) {
+    // 5. Deal from the deck the house committed to, reordered by the players' seeds
+    if (!p.pending) await this.prepareDeck();
+    const pend = p.pending!;
+    const seeds = Object.values(pend.seeds).sort();
+    const perm = await permutationFrom(pend.commit, seeds);
+    const deck = perm.map((j) => pend.serverDeck[j]);
+    p.leaves = pend.leaves;
+    if (!startHand(t, deck, pend.salts, pend.commit, { serverDeck: pend.serverDeck, seeds })) {
       await this.persist();
       this.broadcast();
       return;
     }
+    p.pending = null;
     const h = t.hand!;
-    this.log(`Hand #${h.no} · deck fingerprint ${commit.slice(0, 12)}…`);
+    this.log(`Hand #${h.no} · deck fingerprint ${pend.commit.slice(0, 12)}… · ${seeds.length} player seed${seeds.length === 1 ? "" : "s"} mixed in`);
     this.log(`Blinds ${h.actions[0].amount}/${h.actions[1].amount} · ${t.seats[h.button]!.name} has the button`);
     await this.reportLobby();
     await this.afterChange();
@@ -464,12 +506,15 @@ export class Table extends DurableObject<Env> {
       type: "state",
       tableId: p.tableId,
       turnSeconds: this.turnMs / 1000,
+      bigBlind: BIG_BLIND,
       you: {
         seat: you, waiting: p.waiting.some((w) => w.userId === userId), ready: !!p.ready?.includes(userId),
         topUp: you >= 0 && this.betweenHands() ? Math.max(0, BUY_IN - t.seats[you]!.stack) : 0,
       },
       // Between hands: how long until the next deal, so the table can show a countdown
       next: h?.result && p.next?.kind === "hand" ? { inMs: Math.max(0, p.next.at - Date.now()), totalMs: this.nextHandMs } : null,
+      // The next deck's fingerprint, published before the deal so each player can add a seed to the shuffle
+      nextCommit: (!h || h.result) && p.pending ? p.pending.commit : null,
       seats: t.seats.map((s, i) =>
         s && {
           name: s.name, isBot: s.isBot, you: i === you, stack: s.stack, bet: s.bet, total: s.total,
@@ -479,7 +524,7 @@ export class Table extends DurableObject<Env> {
         },
       ),
       hand: h && {
-        no: h.no, street: h.street, board: h.board, pot: potTotal(t), currentBet: h.currentBet, toAct: h.toAct,
+        no: h.no, street: h.street, board: h.board, pot: potTotal(t), currentBet: h.currentBet, toAct: h.toAct, seeds: h.seeds ?? [],
         button: h.button, commit: h.commit, deadline: h.result || t.seats[h.toAct]?.isBot ? null : p.turnDeadline,
         result: h.result, reveal: h.result ? this.reveal(userId) : null,
       },
@@ -540,6 +585,7 @@ export class Table extends DurableObject<Env> {
   }
   private async schedule(kind: "hand" | "act", at: number) {
     this.p!.next = { kind, at };
+    if (kind === "hand" && !this.p!.pending) await this.prepareDeck(); // commit before players add their seeds
     await this.ctx.storage.setAlarm(at);
   }
   private async persist() { if (this.p) await this.ctx.storage.put("p", this.p); }

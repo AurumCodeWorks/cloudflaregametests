@@ -10,6 +10,7 @@ const walk = (dir, base = "") => {
   for (const name of readdirSync(dir)) {
     const p = join(dir, name);
     if (statSync(p).isDirectory()) walk(p, `${base}/${name}`);
+    else if (name.endsWith(".d.ts")) continue; // type declarations are for the server build, not the site
     else files[`${base}/${name}`] = { type: TYPES[extname(name)] ?? "application/octet-stream", body: readFileSync(p, "utf8") };
   }
 };

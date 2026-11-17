@@ -180,13 +180,16 @@
         <button id="btn-call" class="btn btn-ivory" data-testid="call">Call</button>
         <div class="raise">
           <div class="presets" role="group" aria-label="Raise presets">
+            <button data-preset="min">Min</button>
             <button data-preset="half">½ Pot</button>
+            <button data-preset="threeq">¾ Pot</button>
             <button data-preset="pot">Pot</button>
             <button data-preset="max">All in</button>
           </div>
           <div class="raise-line">
-            <input type="range" id="raise-slider" aria-label="Raise amount" />
-            <label class="amount-box"><span>to</span><input type="number" id="raise-amount" data-testid="raise-amount" /></label>
+            <button class="step" data-step="-1" data-testid="raise-down" aria-label="Lower the raise by one big blind">−10</button>
+            <label class="amount-box"><span>Raise to</span><input type="number" id="raise-amount" data-testid="raise-amount" /></label>
+            <button class="step" data-step="1" data-testid="raise-up" aria-label="Raise by one more big blind">+10</button>
           </div>
         </div>
         <button id="btn-raise" class="btn btn-gold" data-testid="raise">Raise</button>

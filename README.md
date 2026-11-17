@@ -27,8 +27,12 @@ one track per room style. Nothing plays before the player interacts, music is of
 their own switch and volume in the header's speaker menu. The audio was generated with ElevenLabs (sound effects and
 Eleven Music, paid plan with commercial use) and approved sound by sound.
 
-Fairness: the deck is committed (per-card SHA-256) before dealing and each player gets a proof for the cards
-they saw after the hand; folded hands stay private. The house never plays and never touches the cards.
+Fairness: before each deal the house shuffles and publishes the deck's fingerprint (per-card SHA-256 with secret
+salts). Each player's browser then adds a random seed, and the dealt deck is the committed deck reordered by all the
+seeds (`public/fair.js`, shared by server and browser). So the house can't choose the deck (it committed first) and no
+player can steer it (only the dealer knows the committed deck). After the hand each player gets a proof for the cards
+they saw, checks every card came from its dealt position, and sees whether their own seed was mixed in; folded hands
+stay private. Bots decide from a view of their own seat only (`botView`), never the table state.
 
 ## Develop
 
@@ -51,6 +55,7 @@ node tests/leave-midhand.mjs       # leaving mid-hand: folded and released at on
 node tests/hand-pace.mjs           # next hand deals after the normal pause, not a leftover turn timer (TURN_SECONDS:20)
 node tests/between-hands.mjs       # countdown between hands, Top up, Continue (all ready = deal now)
 node tests/sound.cjs               # effects fire with the game, music follows the room, settings switch and persist
+node tests/seeds.mjs               # player seeds are mixed into the shuffle, can't be swapped, and the deal verifies
 npm run test:cards                 # no part of any card touches another (needs the dev server)
 node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (needs the dev server)
 ```

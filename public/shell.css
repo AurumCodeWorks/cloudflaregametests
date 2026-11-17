@@ -76,7 +76,7 @@ input { font: inherit; color: var(--ink); }
 }
 .topbar-right { display: flex; align-items: center; gap: 10px; }
 .wallet, .quiet-btn, .fair-chip {
-  display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 999px;
+  display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-radius: 5px;
   border: 1px solid var(--hair); background: rgba(255, 255, 255, .025); white-space: nowrap;
 }
 .wallet { color: var(--muted); font: 700 10.5px/1 var(--ui); letter-spacing: .14em; text-transform: uppercase; padding-left: 12px; }
@@ -85,33 +85,28 @@ input { font: inherit; color: var(--ink); }
 .quiet-btn, .icon-btn, .fair-chip { color: var(--ink-2); transition: color .2s, border-color .2s, background .2s; }
 .quiet-btn:hover, .icon-btn:hover, .fair-chip:hover { color: var(--ink); border-color: var(--hair-2); background: rgba(255, 255, 255, .05); }
 .quiet-btn span, .fair-chip span { font-weight: 600; font-size: 13px; }
-.icon-btn { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; border: 1px solid var(--hair); background: rgba(255, 255, 255, .025); }
+.icon-btn { width: 38px; height: 38px; border-radius: 5px; display: grid; place-items: center; border: 1px solid var(--hair); background: rgba(255, 255, 255, .025); }
 .fair-chip[data-state="ok"] { color: var(--ok); border-color: rgba(143, 209, 166, .35); background: rgba(143, 209, 166, .06); }
 .fair-chip[data-state="bad"] { color: var(--bad); border-color: rgba(224, 122, 110, .4); background: rgba(224, 122, 110, .06); }
 
 /* ----------------------------------------------------------------- buttons */
+/* Buttons are keys, not pills: tight corners, flat solid faces, a crisp border and a hard bottom edge
+   that presses down when clicked. No glows, no gradients, no sheen. */
 .btn {
+  --edge: rgba(0, 0, 0, .55);
   position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-  height: 52px; padding: 0 24px; border-radius: 12px; overflow: hidden;
-  font: 800 14px/1 var(--ui); letter-spacing: .04em; white-space: nowrap;
-  transition: transform .12s ease, filter .2s ease, box-shadow .2s ease, opacity .2s ease;
+  height: 48px; padding: 0 22px; border-radius: 5px; border: 1px solid transparent;
+  font: 800 12.5px/1 var(--ui); letter-spacing: .12em; text-transform: uppercase; white-space: nowrap;
+  box-shadow: 0 3px 0 var(--edge); transition: transform .06s, box-shadow .06s, background-color .15s, color .15s;
 }
-.btn:active:not(:disabled) { transform: translateY(1px) scale(.99); }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 1px 0 var(--edge); }
 .btn:disabled { opacity: .32; cursor: not-allowed; }
-.btn-gold {
-  color: #221707; background: var(--gold-grad); text-shadow: 0 1px 0 rgba(255, 255, 255, .35);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), inset 0 -2px 0 rgba(0, 0, 0, .18), 0 10px 26px rgba(216, 181, 106, .22);
-}
-.btn-gold::after { /* slow sheen on hover, transform-only */
-  content: ""; position: absolute; top: 0; bottom: 0; left: -40%; width: 30%;
-  background: linear-gradient(105deg, transparent, rgba(255, 255, 255, .55), transparent);
-  transform: translate3d(-100%, 0, 0); transition: transform .7s ease;
-}
-.btn-gold:hover:not(:disabled)::after { transform: translate3d(520%, 0, 0); }
-.btn-ivory { color: #1b1712; background: var(--ivory-grad); box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0, 0, 0, .12), 0 8px 20px rgba(0, 0, 0, .35); }
-.btn-ivory:hover:not(:disabled) { filter: brightness(1.03); }
-.btn-quiet { color: var(--ink-2); border: 1px solid var(--hair-2); background: rgba(255, 255, 255, .02); }
-.btn-quiet:hover:not(:disabled) { color: #f3c8c1; border-color: rgba(224, 122, 110, .55); background: rgba(224, 122, 110, .06); }
+.btn-gold { --edge: #6b5121; color: #1f1608; background: #d4ad5e; border-color: #8f6f2f; }
+.btn-gold:hover:not(:disabled) { background: #dcb867; }
+.btn-ivory { --edge: #8d8065; color: #1b1712; background: #ece4d2; border-color: #b8ab8c; }
+.btn-ivory:hover:not(:disabled) { background: #f3ecdc; }
+.btn-quiet { --edge: rgba(0, 0, 0, .6); color: var(--ink-2); border-color: var(--hair-2); background: #1a1713; }
+.btn-quiet:hover:not(:disabled) { color: #f3c8c1; border-color: rgba(224, 122, 110, .55); }
 
 /* ----------------------------------------------------------------- welcome screens */
 .hero {
@@ -130,7 +125,7 @@ input { font: inherit; color: var(--ink); }
 .lede { margin: 0; max-width: 46ch; font-size: 17px; line-height: 1.6; color: var(--ink-2); }
 .field-row { display: flex; gap: 10px; margin-top: 28px; max-width: 540px; }
 .field-row input {
-  flex: 1; min-width: 0; height: 52px; padding: 0 18px; border-radius: 12px; font-size: 16px;
+  flex: 1; min-width: 0; height: 48px; padding: 0 16px; border-radius: 5px; font-size: 16px;
   background: rgba(255, 255, 255, .035); border: 1px solid var(--hair-2); transition: border-color .2s, box-shadow .2s;
 }
 .field-row input::placeholder { color: var(--muted); }
@@ -202,7 +197,7 @@ input { font: inherit; color: var(--ink); }
 /* ----------------------------------------------------------------- action console */
 .console {
   position: relative; z-index: 5; width: min(100%, 980px); margin: 0 auto; padding: 12px 14px 14px; display: grid; gap: 10px;
-  border-radius: 20px; background: var(--surface); border: 1px solid var(--hair-2);
+  border-radius: 10px; background: var(--surface); border: 1px solid var(--hair-2);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05), var(--shadow-lg);
 }
 .console-top { display: flex; align-items: center; gap: 14px; padding: 0 4px; }
@@ -233,32 +228,22 @@ input { font: inherit; color: var(--ink); }
 }
 @media (prefers-reduced-motion: reduce) { .ring { transition: none; } }
 .raise { display: grid; gap: 8px; align-content: center; padding: 0 6px; min-width: 0; }
-.presets { display: flex; border: 1px solid var(--hair); border-radius: 10px; overflow: hidden; }
-.presets button { flex: 1; height: 28px; font: 800 10.5px/1 var(--ui); letter-spacing: .1em; text-transform: uppercase; color: var(--ink-2); transition: background .2s, color .2s; }
-.presets button + button { border-left: 1px solid var(--hair); }
-.presets button:hover:not(:disabled) { background: rgba(216, 181, 106, .08); color: var(--gold-hi); }
-.raise-line { display: flex; align-items: center; gap: 12px; }
+.presets { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+.presets button, .step {
+  height: 30px; border-radius: 4px; border: 1px solid var(--hair-2); background: #1a1713; box-shadow: 0 2px 0 rgba(0, 0, 0, .6);
+  font: 800 10.5px/1 var(--ui); letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); transition: transform .06s, box-shadow .06s, color .15s, border-color .15s;
+}
+.presets button:hover:not(:disabled), .step:hover:not(:disabled) { color: var(--gold-hi); border-color: rgba(216, 181, 106, .55); }
+.presets button:active:not(:disabled), .step:active:not(:disabled) { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0, 0, 0, .6); }
+.presets button:disabled, .step:disabled { opacity: .35; cursor: not-allowed; }
+.raise-line { display: grid; grid-template-columns: 52px minmax(0, 1fr) 52px; align-items: stretch; gap: 6px; }
+.step { height: 40px; font: 700 15px/1 var(--display); letter-spacing: 0; text-transform: none; }
 .amount-box {
-  display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; border-radius: 10px; flex: none;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px; height: 40px; padding: 0 10px; border-radius: 4px; min-width: 0;
   border: 1px solid var(--hair-2); background: rgba(0, 0, 0, .3); font: 800 9.5px/1 var(--ui); letter-spacing: .16em; text-transform: uppercase; color: var(--muted);
 }
 .amount-box input { width: 74px; background: none; border: 0; outline: none; text-align: right; font: 700 17px/1 var(--display); color: var(--gold-hi); font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
 .amount-box input::-webkit-inner-spin-button, .amount-box input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
-/* Slider: gold track fill and a casino-chip thumb */
-#raise-slider { -webkit-appearance: none; appearance: none; flex: 1; min-width: 0; height: 24px; background: transparent; }
-#raise-slider::-webkit-slider-runnable-track { height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--gold) var(--fill, 0%), rgba(255, 255, 255, .1) var(--fill, 0%)); }
-#raise-slider::-moz-range-track { height: 4px; border-radius: 999px; background: linear-gradient(90deg, var(--gold) var(--fill, 0%), rgba(255, 255, 255, .1) var(--fill, 0%)); }
-#raise-slider::-webkit-slider-thumb {
-  -webkit-appearance: none; width: 24px; height: 24px; margin-top: -10px; border-radius: 50%; cursor: grab;
-  background: radial-gradient(circle, #b51f29 0 34%, #f3eee2 35% 40%, transparent 41%), repeating-conic-gradient(#f3eee2 0 14deg, #b51f29 14deg 45deg);
-  box-shadow: 0 0 0 2px #17130e, 0 0 0 3px var(--gold), 0 4px 10px rgba(0, 0, 0, .55);
-}
-#raise-slider::-moz-range-thumb {
-  width: 24px; height: 24px; border: 0; border-radius: 50%; cursor: grab;
-  background: radial-gradient(circle, #b51f29 0 34%, #f3eee2 35% 40%, transparent 41%), repeating-conic-gradient(#f3eee2 0 14deg, #b51f29 14deg 45deg);
-  box-shadow: 0 0 0 2px #17130e, 0 0 0 3px var(--gold), 0 4px 10px rgba(0, 0, 0, .55);
-}
-#raise-slider:disabled::-webkit-slider-thumb { cursor: not-allowed; }
 
 /* ----------------------------------------------------------------- drawer */
 .drawer {
@@ -305,8 +290,8 @@ input { font: inherit; color: var(--ink); }
 }
 .showroom select option { background: #15120f; color: var(--ink); }
 .showroom .row { margin-left: auto; display: flex; gap: 8px; }
-.showroom .row button { height: 34px; padding: 0 16px; border-radius: 9px; font: 800 12px/1 var(--ui); letter-spacing: .04em; }
-.showroom .primary { color: #221707; background: var(--gold-grad); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .55); }
+.showroom .row button { height: 34px; padding: 0 16px; border-radius: 4px; font: 800 12px/1 var(--ui); letter-spacing: .04em; }
+.showroom .primary { color: #1f1608; background: #d4ad5e; border: 1px solid #8f6f2f; box-shadow: 0 2px 0 #6b5121; }
 .showroom .neutral { color: var(--ink-2); border: 1px solid var(--hair-2); }
 .has-showroom { --strip: 53px; }
 
@@ -327,7 +312,7 @@ input { font: inherit; color: var(--ink); }
   #screen-table { padding: 2px 10px 12px; }
   .table-wrap { padding: 64px 0 84px; }
   .felt { width: 100%; }
-  .console { border-radius: 16px; padding: 10px; }
+  .console { border-radius: 8px; padding: 10px; }
   .console-main { grid-template-columns: 1fr 1fr; }
   .raise { grid-column: 1 / -1; order: 3; padding: 0; }
   #btn-raise { grid-column: 1 / -1; order: 4; }
@@ -351,25 +336,6 @@ input { font: inherit; color: var(--ink); }
    When the table itself is smaller (short laptop screens, showroom toolbar open), the
    middle of the felt tightens up so the pot, board and labels never crowd the seats. */
 .felt { container-type: inline-size; container-name: felt; }
-@container felt (max-width: 900px) {
-  .board .card { --w: 62px; }
-  .board { min-height: 87px; gap: 8px; }
-  #pot-pile { height: 38px; }
-  .center { gap: 6px; }
-  .pot strong { font-size: 16px; }
-  .street { order: -1; margin-bottom: 4px; }
-  .pot-area::before { width: 150px; height: 46px; }
-}
-@container felt (max-width: 780px) {
-  .board .card { --w: 54px; }
-  .board { min-height: 76px; gap: 6px; }
-  #pot-pile { height: 34px; }
-}
-@container felt (max-width: 520px) {
-  .board .card { --w: 44px; }
-  .board { min-height: 62px; gap: 4px; }
-}
-
 /* ----------------------------------------------------------------- cosmetics shop */
 .link-btn { margin-top: 18px; color: var(--gold); font: 700 14px var(--ui); letter-spacing: .01em; }
 .link-btn:hover { color: var(--gold-hi); }
@@ -421,7 +387,7 @@ input { font: inherit; color: var(--ink); }
 .chips-row { display: flex; gap: 14px; align-items: flex-end; }
 .cele-stage { display: grid; place-items: center; gap: 12px; }
 .mini-plate { padding: 8px 18px; border-radius: 999px; background: var(--surface); border: 1px solid var(--hair-2); font: 700 14px var(--display); color: var(--gold-hi); }
-.preview-btn { height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--hair-2); color: var(--ink-2); font: 700 11px var(--ui); letter-spacing: .12em; text-transform: uppercase; background: rgba(0, 0, 0, .35); }
+.preview-btn { height: 30px; padding: 0 14px; border-radius: 4px; border: 1px solid var(--hair-2); color: var(--ink-2); font: 700 11px var(--ui); letter-spacing: .12em; text-transform: uppercase; background: rgba(0, 0, 0, .35); }
 .preview-btn:hover { color: var(--gold-hi); border-color: var(--gold); }
 @media (max-width: 900px) {
   .shop-inner { padding: 20px 14px 50px; }
@@ -451,4 +417,70 @@ input { font: inherit; color: var(--ink); }
   .wallet, .quiet-btn, .fair-chip { height: 34px; }
   .quiet-btn, .fair-chip { padding-left: 9px; padding-right: 9px; }
   .wallet { padding: 0 9px; gap: 6px; }
+}
+
+/* ----------------------------------------------------------------- big screens and the details drawer
+   One scale factor (--s) grows the whole table together on large screens (felt, cards, seats, chips,
+   console), so 1440p and 4K show the same table as 1080p, just bigger. Sizes stay real pixels, so the
+   chip and card animations (which read element positions) keep working in every browser. */
+#screen-table { --s: 1; --drawer-room: 0px; transition: padding-right .5s cubic-bezier(.3, .7, .2, 1); }
+@media (min-width: 1700px) and (min-height: 1020px) { #screen-table { --s: 1.15; } }
+@media (min-width: 2200px) and (min-height: 1200px) { #screen-table { --s: 1.3; } }
+@media (min-width: 2900px) and (min-height: 1600px) { #screen-table { --s: 1.6; } }
+@media (min-width: 901px) {
+  #screen-table .table-wrap { padding: calc(66px * var(--s)) calc(150px * var(--s)) calc(78px * var(--s)); }
+  #screen-table .felt { width: min(100%, calc(940px * var(--s)), calc((100svh - var(--topbar) - var(--strip, 0px) - 330px * var(--s)) * 2)); }
+  #screen-table .card { --w: calc(64px * var(--s)); }
+  #screen-table .card.small { --w: calc(50px * var(--s)); }
+  #screen-table .board .card { --w: calc(72px * var(--s)); }
+  #screen-table .seat { width: calc(190px * var(--s)); gap: calc(6px * var(--s)); }
+  #screen-table .seat .hole { min-height: calc(70px * var(--s)); }
+  #screen-table .plate { min-width: calc(170px * var(--s)); gap: calc(10px * var(--s)); padding: calc(7px * var(--s)) calc(18px * var(--s)) calc(7px * var(--s)) calc(7px * var(--s)); }
+  #screen-table .avatar { width: calc(40px * var(--s)); height: calc(40px * var(--s)); font-size: calc(17px * var(--s)); }
+  #screen-table .plate .name { max-width: calc(128px * var(--s)); font-size: calc(13px * var(--s)); }
+  #screen-table .plate .stack { font-size: calc(15px * var(--s)); }
+  #screen-table .plate .status { font-size: calc(11px * var(--s)); }
+  #screen-table .tag-bot, #screen-table .tag-you { font-size: calc(8.5px * var(--s)); }
+  #screen-table .dealer { width: calc(22px * var(--s)); height: calc(22px * var(--s)); font-size: calc(11px * var(--s)); }
+  #screen-table .pot strong { font-size: calc(18px * var(--s)); }
+  #screen-table .pot-label, #screen-table .street { font-size: calc(9.5px * var(--s)); }
+  #screen-table .zone { width: calc(86px * var(--s)); height: calc(86px * var(--s)); }
+  #screen-table .zone-amt { font-size: calc(12px * var(--s)); }
+  #screen-table #pot-pile { height: calc(46px * var(--s)); min-width: calc(120px * var(--s)); }
+  #screen-table .console { width: min(100%, calc(980px * var(--s))); }
+  #screen-table .console .btn { height: calc(48px * var(--s)); padding: 0 calc(22px * var(--s)); font-size: calc(12.5px * var(--s)); }
+  #screen-table .presets button { height: calc(30px * var(--s)); font-size: calc(10.5px * var(--s)); }
+  #screen-table .step, #screen-table .amount-box { height: calc(40px * var(--s)); }
+  #screen-table .step { font-size: calc(15px * var(--s)); }
+  #screen-table .amount-box input { font-size: calc(17px * var(--s)); width: calc(74px * var(--s)); }
+  #screen-table .raise-line { grid-template-columns: calc(52px * var(--s)) minmax(0, 1fr) calc(52px * var(--s)); }
+  #screen-table .action-status, #screen-table .between-text span { font-size: calc(13px * var(--s)); }
+  #screen-table .between-text strong { font-size: calc(16px * var(--s)); }
+  #screen-table .countdown { width: calc(52px * var(--s)); height: calc(52px * var(--s)); }
+  #screen-table #count-num { font-size: calc(20px * var(--s)); }
+}
+/* With room to spare, opening the drawer moves the table left into the space beside it instead of covering it */
+@media (min-width: 1400px) {
+  #screen-table.drawer-open { padding-right: calc(min(380px, 92vw) + 12px); }
+  #screen-table.drawer-open .drawer { box-shadow: none; }
+}
+
+/* Compact tables (a small felt): these come last and match the scale rules' strength, so they win when the felt is small */
+@container felt (max-width: 900px) {
+  #screen-table .board .card { --w: 62px; }
+  #screen-table .board { min-height: 87px; gap: 8px; }
+  #screen-table #pot-pile { height: 38px; }
+  #screen-table .center { gap: 6px; }
+  #screen-table .pot strong { font-size: 16px; }
+  #screen-table .street { order: -1; margin-bottom: 4px; }
+  #screen-table .pot-area::before { width: 150px; height: 46px; }
+}
+@container felt (max-width: 780px) {
+  #screen-table .board .card { --w: 54px; }
+  #screen-table .board { min-height: 76px; gap: 6px; }
+  #screen-table #pot-pile { height: 34px; }
+}
+@container felt (max-width: 520px) {
+  #screen-table .board .card { --w: 44px; }
+  #screen-table .board { min-height: 62px; gap: 4px; }
 }

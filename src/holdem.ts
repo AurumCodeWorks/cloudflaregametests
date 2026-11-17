@@ -73,7 +73,9 @@ export interface Hand {
   button: number;
   sbSeat: number;
   bbSeat: number;
-  deck: string[];
+  deck: string[]; // the dealt deck: the committed deck reordered by the players' seeds
+  serverDeck?: string[]; // the deck the house committed to before any seeds arrived (salts and leaves follow this order)
+  seeds?: string[]; // players' seeds mixed into this hand, sorted
   ptr: number;
   board: string[];
   street: Street;
@@ -155,7 +157,10 @@ function deal(h: Hand): string {
 }
 
 /** Start a hand with a pre-shuffled deck. Returns false if fewer than 2 players can play. */
-export function startHand(t: TableState, deck: string[], salts: string[], commit: string): boolean {
+export function startHand(
+  t: TableState, deck: string[], salts: string[], commit: string,
+  seeded?: { serverDeck: string[]; seeds: string[] },
+): boolean {
   const eligible = (i: number) => !!t.seats[i] && t.seats[i]!.stack > 0;
   const count = t.seats.filter((_, i) => eligible(i)).length;
   if (count < 2) return false;
@@ -183,7 +188,7 @@ export function startHand(t: TableState, deck: string[], salts: string[], commit
   }
 
   const h: Hand = {
-    no: t.handNo, prevButton, button, sbSeat, bbSeat, deck, ptr: 0, board: [], street: "preflop",
+    no: t.handNo, prevButton, button, sbSeat, bbSeat, deck, serverDeck: seeded?.serverDeck, seeds: seeded?.seeds ?? [], ptr: 0, board: [], street: "preflop",
     toAct: -1, currentBet: BIG_BLIND, minRaise: BIG_BLIND, actions: [], commit, salts,
     startSeats: t.seats.map((s) => (s ? { userId: s.userId, name: s.name, isBot: s.isBot, stack: s.stack } : null)),
     result: null, finalized: false,
@@ -445,6 +450,8 @@ export interface HandHistory {
   prevButton: number;
   startSeats: Hand["startSeats"];
   deck: string[];
+  serverDeck?: string[];
+  seeds?: string[];
   salts: string[];
   commit: string;
   actions: ActionRecord[];
@@ -458,7 +465,7 @@ export function historyOf(tableId: string, t: TableState): HandHistory {
   const h = t.hand!;
   return {
     tableId, handNo: h.no, prevButton: h.prevButton, startSeats: h.startSeats,
-    deck: h.deck, salts: h.salts, commit: h.commit, actions: h.actions,
+    deck: h.deck, serverDeck: h.serverDeck, seeds: h.seeds, salts: h.salts, commit: h.commit, actions: h.actions,
     board: h.board, rake: t.rake ?? DEFAULT_RAKE, result: h.result!, endedAt: Date.now(),
   };
 }
@@ -470,7 +477,7 @@ export function replayHand(hist: HandHistory): HandResult {
   t.rake = hist.rake ?? DEFAULT_RAKE; // histories saved before the rule was recorded used the default
   t.button = hist.prevButton;
   t.handNo = hist.handNo - 1;
-  startHand(t, hist.deck, hist.salts, hist.commit);
+  startHand(t, hist.deck, hist.salts, hist.commit, hist.serverDeck ? { serverDeck: hist.serverDeck, seeds: hist.seeds ?? [] } : undefined);
   // The first two recorded actions are the blinds, posted by startHand
   for (const a of hist.actions.slice(2)) {
     const err = act(t, a.seat, a.type === "raise" ? { type: a.type, to: a.to } : { type: a.type });
@@ -488,5 +495,6 @@ export function replayHand(hist: HandHistory): HandResult {
 export function revealFor(h: Hand, leaves: string[], ownHole: string[]): RevealItem[] {
   const visible = new Set([...h.board, ...ownHole]);
   for (const shown of Object.values(h.result?.shown ?? {})) for (const c of shown.hole) visible.add(c);
-  return h.deck.map((c, i) => (visible.has(c) ? { card: c, salt: h.salts[i] } : { leaf: leaves[i] }));
+  // In committed-deck order: the player re-applies the seed permutation to find where each card was dealt
+  return (h.serverDeck ?? h.deck).map((c, i) => (visible.has(c) ? { card: c, salt: h.salts[i] } : { leaf: leaves[i] }));
 }

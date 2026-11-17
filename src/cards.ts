@@ -113,8 +113,78 @@ export function eval5(cards: string[]): number {
   return pack(0, rs);
 }
 
-/** Best 5-card score from 5-7 cards. */
+/** Best 5-card score from 5-7 cards (fast path: same scores as the reference below). */
 export function bestScore(cards: string[]): number {
+  for (let i = 0; i < cards.length; i++) scratch[i] = cardInt(cards[i]);
+  return scoreInts(scratch, cards.length);
+}
+
+// ---------------------------------------------------------------------------
+// Fast scorer. A card is an integer: rank index (0 = "2" .. 12 = "A") * 4 + suit index.
+// One pass builds rank counts and bit masks; no 5-card combinations, no allocations.
+// ---------------------------------------------------------------------------
+export const cardInt = (c: string) => (RANKS.indexOf(c[0]) << 2) | SUITS.indexOf(c[1]);
+const scratch = new Int32Array(7);
+const rankCount = new Int32Array(13);
+const suitCount = new Int32Array(4);
+const suitMask = new Int32Array(4);
+
+/** Highest straight in a 13-bit rank mask, as a rank index (wheel A-5 = 3), or -1. */
+function straightTop(mask: number): number {
+  for (let top = 12; top >= 4; top--) if (((mask >> (top - 4)) & 31) === 31) return top;
+  return (mask & 0b1000000001111) === 0b1000000001111 ? 3 : -1;
+}
+
+/** Score `n` integer cards (5-7). Same layout as pack(): category, then up to five ranks (2..14). */
+export function scoreInts(cs: ArrayLike<number>, n: number): number {
+  rankCount.fill(0); suitCount.fill(0); suitMask.fill(0);
+  let rankMask = 0;
+  for (let i = 0; i < n; i++) {
+    const r = cs[i] >> 2, su = cs[i] & 3;
+    rankCount[r]++; suitCount[su]++; suitMask[su] |= 1 << r; rankMask |= 1 << r;
+  }
+  let flushSuit = -1;
+  for (let su = 0; su < 4; su++) if (suitCount[su] >= 5) flushSuit = su;
+  if (flushSuit >= 0) {
+    const sf = straightTop(suitMask[flushSuit]);
+    if (sf >= 0) return packIdx(8, sf);
+  }
+  let quad = -1, trip1 = -1, trip2 = -1, pair1 = -1, pair2 = -1;
+  for (let r = 12; r >= 0; r--) {
+    const c = rankCount[r];
+    if (c === 4) { if (quad < 0) quad = r; }
+    else if (c === 3) { if (trip1 < 0) trip1 = r; else if (trip2 < 0) trip2 = r; }
+    else if (c === 2) { if (pair1 < 0) pair1 = r; else if (pair2 < 0) pair2 = r; }
+  }
+  if (quad >= 0) return packIdx(7, quad, topRanks(rankMask & ~(1 << quad), 1));
+  if (trip1 >= 0 && (trip2 >= 0 || pair1 >= 0)) return packIdx(6, trip1, Math.max(trip2, pair1));
+  if (flushSuit >= 0) return packTop(5, suitMask[flushSuit]);
+  const st = straightTop(rankMask);
+  if (st >= 0) return packIdx(4, st);
+  if (trip1 >= 0) return packIdx(3, trip1, topRanks(rankMask & ~(1 << trip1), 2));
+  if (pair1 >= 0 && pair2 >= 0) return packIdx(2, pair1, pair2, topRanks(rankMask & ~(1 << pair1) & ~(1 << pair2), 1));
+  if (pair1 >= 0) return packIdx(1, pair1, topRanks(rankMask & ~(1 << pair1), 3));
+  return packTop(0, rankMask);
+}
+/** The highest `k` ranks in a mask, already packed as base-16 digits (rank values 2..14). */
+function topRanks(mask: number, k: number): number[] {
+  const out: number[] = [];
+  for (let r = 12; r >= 0 && out.length < k; r--) if (mask & (1 << r)) out.push(r);
+  return out;
+}
+function packIdx(cat: number, ...parts: (number | number[])[]): number {
+  const ranks: number[] = [];
+  for (const p of parts) typeof p === "number" ? ranks.push(p) : ranks.push(...p);
+  let sc = cat;
+  for (let i = 0; i < 5; i++) sc = sc * 16 + (i < ranks.length ? ranks[i] + 2 : 0);
+  return sc;
+}
+function packTop(cat: number, mask: number): number {
+  return packIdx(cat, topRanks(mask, 5));
+}
+
+/** Reference scorer: tries every 5-card combination with eval5. Slow, simple; the tests check the fast one against it. */
+export function bestScoreReference(cards: string[]): number {
   let best = -1;
   const pick: string[] = [];
   const walk = (start: number) => {

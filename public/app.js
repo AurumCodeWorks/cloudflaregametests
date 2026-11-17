@@ -1,7 +1,7 @@
 // Card Table client. Renders whatever the table server sends; the server is the only authority.
 import * as FX from "./fx.js";
 import { createShop } from "./shop.js";
-import { verifyDeal } from "./fair.js";
+import { newSeed, verifyDeal } from "./fair.js";
 import * as Sound from "./sound.js";
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
@@ -14,6 +14,8 @@ const app = {
   state: null,
   verified: {}, // handNo -> true/false
   commits: {}, // handNo -> fingerprint as first seen while the hand was live (before any card was revealed)
+  seeds: {}, // fingerprint -> the seed this browser added to that deck's shuffle
+  seedIn: {}, // handNo -> true/false: was our seed mixed into that hand
   demo: new URLSearchParams(location.search).get("demo"),
 };
 window.__poker = app; // test hook
@@ -107,7 +109,7 @@ function show(screen) {
   for (const id of ["leave-btn", "fair-btn", "history-btn"]) $(id).hidden = screen !== "table";
   $("shop-btn").hidden = screen === "login" || !!app.demo;
   $("wallet-balance").parentElement.hidden = screen === "login";
-  if (screen !== "table") $("drawer").classList.remove("open");
+  if (screen !== "table") setDrawer(false);
   if (screen !== "table") fanCards();
 }
 function toast(msg) {
@@ -170,11 +172,16 @@ $("play-btn").addEventListener("click", async () => {
 });
 
 $("leave-btn").addEventListener("click", () => send({ type: "leave" }));
-const openDrawer = () => $("drawer").classList.add("open");
+// The details drawer; on wide screens the table moves aside for it (see #screen-table.drawer-open)
+function setDrawer(open) {
+  $("drawer").classList.toggle("open", open);
+  $("screen-table").classList.toggle("drawer-open", open);
+}
+const openDrawer = () => setDrawer(true);
 $("fair-btn").addEventListener("click", openDrawer);
 $("history-btn").addEventListener("click", openDrawer);
-$("drawer-close").addEventListener("click", () => $("drawer").classList.remove("open"));
-addEventListener("keydown", (e) => e.key === "Escape" && $("drawer").classList.remove("open"));
+$("drawer-close").addEventListener("click", () => setDrawer(false));
+addEventListener("keydown", (e) => e.key === "Escape" && setDrawer(false));
 
 // ---------------------------------------------------------------- websocket
 function connect(tableId) {
@@ -219,9 +226,11 @@ async function verifyHand(s) {
   if (mine?.length === 2 && !mine.includes("??")) holes[s.you.seat] = mine;
   for (const [seat, shown] of Object.entries(hand.result.shown)) holes[seat] = shown.hole;
   app.verified[hand.no] = await verifyDeal({
-    commit, reveal: hand.reveal, button: hand.button, dealtIn: s.seats.map((x) => !!x?.inHand), board: hand.board, holes,
+    commit, reveal: hand.reveal, seeds: hand.seeds ?? [], button: hand.button, dealtIn: s.seats.map((x) => !!x?.inHand), board: hand.board, holes,
   });
-  for (const k of Object.keys(app.verified)) if (+k < hand.no - 20) { delete app.verified[k]; delete app.commits[k]; }
+  const mySeed = app.seeds[commit];
+  app.seedIn[hand.no] = mySeed ? (hand.seeds ?? []).includes(mySeed) : null;
+  for (const k of Object.keys(app.verified)) if (+k < hand.no - 20) { delete app.verified[k]; delete app.commits[k]; delete app.seedIn[k]; }
   if (app.state?.hand?.no === hand.no) renderFair(app.state.hand);
 }
 
@@ -276,6 +285,11 @@ function onState(s) {
   // Your buy-in just moved from your balance to the table: refresh the header balance
   if (!app.demo && (old?.you?.seat ?? -1) < 0 && s.you.seat >= 0) refreshMe().catch(() => {});
   if (s.hand && !s.hand.result) app.commits[s.hand.no] ??= s.hand.commit;
+  // A new deck has been committed for the next hand: add our own randomness to its shuffle (once)
+  if (s.nextCommit && !app.seeds[s.nextCommit] && (s.you.seat >= 0 || s.you.waiting)) {
+    app.seeds[s.nextCommit] = newSeed();
+    send({ type: "seed", commit: s.nextCommit, seed: app.seeds[s.nextCommit] });
+  }
   if (!old?.legal && s.legal) Sound.play("your-turn");
   if (old?.hand && s.hand && old.hand.no === s.hand.no)
     for (const line of newLogLines(old.log, s.log)) {
@@ -304,7 +318,9 @@ function capture() {
 
 // One chip size per device, used everywhere (betting circles, pot, flights), so chips never change size.
 const phone = matchMedia("(max-width: 900px)");
-const chipSize = () => (phone.matches ? 20 : 28);
+// Chips grow with the table on large screens (the --s scale in shell.css)
+const tableScale = () => parseFloat(getComputedStyle($("screen-table")).getPropertyValue("--s")) || 1;
+const chipSize = () => (phone.matches ? 20 : Math.round(28 * tableScale()));
 
 // ---------------------------------------------------------------- chip pools
 // Each betting circle and the pot hold real chips ({id, d}). Chips keep their id as they move
@@ -589,19 +605,14 @@ function renderActions(s) {
   $("btn-call").textContent = myTurn && L.call ? `Call ${L.call.toLocaleString()}` : "Call";
 
   const canRaise = myTurn && L.canRaise;
-  for (const el of [$("btn-raise"), $("raise-amount"), $("raise-slider"), ...document.querySelectorAll("[data-preset]")]) el.disabled = !canRaise;
+  for (const el of [$("btn-raise"), $("raise-amount"), ...document.querySelectorAll("[data-preset], [data-step]")]) el.disabled = !canRaise;
   if (canRaise) {
-    const slider = $("raise-slider");
-    slider.min = L.minRaiseTo;
-    slider.max = L.maxRaiseTo;
-    slider.step = 5;
-    if (!app.raiseTouched || +$("raise-amount").value < L.minRaiseTo || +$("raise-amount").value > L.maxRaiseTo) {
-      slider.value = L.minRaiseTo;
-      $("raise-amount").value = L.minRaiseTo;
-    }
+    if (!app.raiseTouched || +$("raise-amount").value < L.minRaiseTo || +$("raise-amount").value > L.maxRaiseTo) $("raise-amount").value = L.minRaiseTo;
     const v = +$("raise-amount").value;
     $("btn-raise").textContent = v >= L.maxRaiseTo ? "All in" : `Raise to ${v.toLocaleString()}`;
-    slider.style.setProperty("--fill", `${((v - L.minRaiseTo) / Math.max(1, L.maxRaiseTo - L.minRaiseTo)) * 100}%`);
+    $("raise-amount").min = L.minRaiseTo;
+    $("raise-amount").max = L.maxRaiseTo;
+    for (const b of document.querySelectorAll("[data-step]")) b.disabled = +b.dataset.step < 0 ? v <= L.minRaiseTo : v >= L.maxRaiseTo;
   }
 
   turnTicks();
@@ -672,7 +683,13 @@ function renderFair(h) {
   $("fair-chip-text").textContent = !h.result ? "Deck locked" : v === true ? "Verified" : v === false ? "Check failed" : "Checking";
   const short = `<code>${h.commit.slice(0, 16)}…</code>`;
   if (!h.result) body.innerHTML = `Hand #${h.no} deck locked before dealing.<br/>Fingerprint ${short}`;
-  else if (v === true) body.innerHTML = `Hand #${h.no}: <span class="ok">✔ Shuffle verified</span><br/>Every card you saw matches fingerprint ${short}, which was published before the deal. Folded hands stay private.`;
+  else if (v === true) {
+    const seeded = app.seedIn[h.no];
+    const seedLine = seeded === true ? `Your browser's random seed was mixed into this shuffle (${(h.seeds ?? []).length} player seed${(h.seeds ?? []).length === 1 ? "" : "s"} in total), so the house couldn't choose the deck.`
+      : seeded === false ? "Your seed arrived after the deal, so this hand used the other players' seeds."
+      : "";
+    body.innerHTML = `Hand #${h.no}: <span class="ok">✔ Shuffle verified</span><br/>Every card you saw matches fingerprint ${short}, which was published before the deal. Folded hands stay private.${seedLine ? `<br/>${seedLine}` : ""}`;
+  }
   else if (v === false) body.innerHTML = `Hand #${h.no}: <span class="bad">✖ Verification failed</span><br/>Fingerprint ${short}`;
   else body.innerHTML = `Hand #${h.no}: checking shuffle…`;
 }
@@ -714,11 +731,6 @@ $("btn-raise").onclick = () => {
   app.raiseTouched = false;
   send(L && to >= L.maxRaiseTo ? { type: "action", action: "allin" } : { type: "action", action: "raise", to });
 };
-$("raise-slider").oninput = (e) => {
-  app.raiseTouched = true;
-  $("raise-amount").value = e.target.value;
-  renderActions(app.state);
-};
 $("raise-amount").oninput = () => {
   app.raiseTouched = true;
   renderActions(app.state);
@@ -728,14 +740,33 @@ document.querySelectorAll("[data-preset]").forEach((b) => {
     const s = app.state;
     const L = s?.legal;
     if (!L) return;
-    const pot = s.hand.pot;
-    const target = { half: s.hand.currentBet + pot / 2, pot: s.hand.currentBet + pot, max: L.maxRaiseTo }[b.dataset.preset];
-    const v = Math.max(L.minRaiseTo, Math.min(L.maxRaiseTo, Math.round(target / 5) * 5));
-    app.raiseTouched = true;
-    $("raise-amount").value = v;
-    $("raise-slider").value = v;
-    renderActions(app.state);
+    // Pot-sized raises follow the usual rule: call first, then raise by that fraction of the pot after the call
+    const potAfterCall = s.hand.pot + L.call;
+    const raiseBy = (f) => s.hand.currentBet + potAfterCall * f;
+    const target = { min: L.minRaiseTo, half: raiseBy(0.5), threeq: raiseBy(0.75), pot: raiseBy(1), max: L.maxRaiseTo }[b.dataset.preset];
+    setRaise(Math.round(target / 5) * 5);
   };
+});
+function setRaise(v) {
+  const L = app.state?.legal;
+  if (!L) return;
+  app.raiseTouched = true;
+  $("raise-amount").value = Math.max(L.minRaiseTo, Math.min(L.maxRaiseTo, v));
+  renderActions(app.state);
+}
+// −10 / +10: one big blind per press; hold to keep stepping
+document.querySelectorAll("[data-step]").forEach((b) => {
+  let hold = null;
+  const step = () => setRaise(+$("raise-amount").value + +b.dataset.step * (app.state?.bigBlind ?? 10));
+  const stop = () => { clearTimeout(hold); clearInterval(hold); hold = null; };
+  b.addEventListener("pointerdown", (e) => {
+    if (b.disabled) return;
+    e.preventDefault();
+    step();
+    hold = setTimeout(() => { hold = setInterval(step, 90); }, 400);
+  });
+  for (const ev of ["pointerup", "pointerleave", "pointercancel"]) b.addEventListener(ev, stop);
+  b.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); step(); } });
 });
 setInterval(() => {
   const s = app.state;

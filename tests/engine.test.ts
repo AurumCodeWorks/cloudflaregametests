@@ -1,13 +1,14 @@
 // Run with: node tests/engine.test.ts   (Node 22.18+ runs TypeScript directly)
 import assert from "node:assert/strict";
-import { bestScore, categoryName, commitDeck, eval5, freshDeck, randomHex, secureShuffle, verifyReveal } from "../src/cards.ts";
+import { bestScore, bestScoreReference, categoryName, commitDeck, eval5, freshDeck, randomHex, secureShuffle, verifyReveal } from "../src/cards.ts";
 import {
-  act, buildPots, chipsOnTable, historyOf, legalActions, newSeat, newTable, replayHand, revealFor, startHand, BUY_IN,
+  act, buildPots, chipsOnTable, historyOf, legalActions, newSeat, newTable, replayHand, revealFor, startHand, BIG_BLIND, BUY_IN,
 } from "../src/holdem.ts";
 import type { TableState } from "../src/holdem.ts";
-import { decide } from "../src/bot.ts";
+import { botView, decide, handClass } from "../src/bot.ts";
+import { PREFLOP_EQUITY } from "../src/preflop.ts";
 import { STAKES, TOURNAMENT_RAKE, disclose } from "../src/stakes.ts";
-import { verifyDeal } from "../public/fair.js";
+import { newSeed, permutationFrom, verifyDeal } from "../public/fair.js";
 
 let passed = 0;
 function test(name: string, fn: () => void | Promise<void>) {
@@ -146,7 +147,7 @@ await test("3,000 random hands: chips conserved, stacks never negative, every ha
       const legal = legalActions(t, seat)!;
       const r = Math.random();
       // 10% of decisions come from the real bot, the rest are random legal moves
-      let a = r < 0.1 ? decide(t, seat) : null;
+      let a = r < 0.1 ? decide(botView(t, seat, BIG_BLIND)!).action : null;
       if (!a) {
         const x = Math.random();
         if (x < 0.15) a = { type: "fold" };
@@ -182,21 +183,22 @@ await test("replay uses the table's own house-cut rule (free-play tables take 0%
   assert.deepEqual(replayHand(hist), hist.result);
 });
 
-/** Play a 4-handed hand to showdown and return what player `me` would receive. */
-async function showdownFor(me: number) {
+/** Play a 4-handed hand to showdown, as the table does it (commit first, then mix in seeds), and return what player `me` receives. */
+async function showdownFor(me: number, seeds: string[] = []) {
   const t = newTable();
   for (let i = 0; i < 4; i++) t.seats[i] = newSeat(`p${i}`, `P${i}`, false, 500, "r");
   t.button = 1; // button moves to seat 2
-  const deck = secureShuffle(freshDeck());
-  const salts = deck.map(() => randomHex(8));
-  const { commit, leaves } = await commitDeck(deck, salts);
-  startHand(t, deck, salts, commit);
+  const serverDeck = secureShuffle(freshDeck());
+  const salts = serverDeck.map(() => randomHex(8));
+  const { commit, leaves } = await commitDeck(serverDeck, salts);
+  const perm = await permutationFrom(commit, [...seeds].sort());
+  startHand(t, perm.map((j) => serverDeck[j]), salts, commit, { serverDeck, seeds: [...seeds].sort() });
   act(t, t.hand!.toAct, { type: "fold" });
   while (!t.hand!.result) act(t, t.hand!.toAct, legalActions(t, t.hand!.toAct)!.check ? { type: "check" } : { type: "call" });
   const h = t.hand!;
   const holes: Record<number, string[]> = { [me]: t.seats[me]!.hole };
   for (const [seat, shown] of Object.entries(h.result!.shown)) holes[+seat] = shown.hole;
-  const input = { commit, reveal: revealFor(h, leaves, t.seats[me]!.hole), button: h.button, dealtIn: t.seats.map((s) => !!s?.inHand), board: [...h.board], holes };
+  const input = { commit, reveal: revealFor(h, leaves, t.seats[me]!.hole), seeds: h.seeds ?? [], button: h.button, dealtIn: t.seats.map((s) => !!s?.inHand), board: [...h.board], holes };
   return { input, h, leaves };
 }
 
@@ -217,6 +219,73 @@ await test("fairness check catches cards that didn't come from their place in th
   // ...and claiming different hole cards for yourself fails
   const fakeHole = [h.deck[50], h.deck[49]];
   assert.ok(!(await verifyDeal({ ...input, holes: { ...input.holes, 0: fakeHole }, reveal: revealFor(h, leaves, fakeHole) })));
+});
+
+await test("fast hand scorer matches the reference on 60,000 random 5-, 6- and 7-card hands", () => {
+  for (let i = 0; i < 20000; i++) {
+    const d = secureShuffle(freshDeck());
+    for (const k of [5, 6, 7]) assert.equal(bestScore(d.slice(0, k)), bestScoreReference(d.slice(0, k)), d.slice(0, k).join(" "));
+  }
+});
+
+await test("preflop table: 169 hands, sensible order, equity falls as opponents are added", () => {
+  assert.equal(Object.keys(PREFLOP_EQUITY).length, 169);
+  const e = (h: string) => PREFLOP_EQUITY[h][0];
+  assert.ok(e("AA") > e("KK") && e("KK") > e("AKs") && e("AKs") > e("AKo") && e("AKo") > e("72o"));
+  for (const [h, [one, two, three]] of Object.entries(PREFLOP_EQUITY)) assert.ok(one > two && two > three, h);
+  assert.equal(handClass(["Ah", "Kh"]), "AKs");
+  assert.equal(handClass(["2c", "7d"]), "72o");
+});
+
+await test("a bot sees only its own cards and public play: hidden cards and deck order can't change its view or move", () => {
+  const seeded = (seed: number) => () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 2 ** 32);
+  for (let trial = 0; trial < 200; trial++) {
+    const t = newTable();
+    for (let i = 0; i < 4; i++) t.seats[i] = newSeat(`p${i}`, `P${i}`, true, 500, "r");
+    startHand(t, secureShuffle(freshDeck()), [], "c");
+    // play a little so there's public betting and maybe a board
+    for (let k = 0; k < trial % 6 && !t.hand!.result; k++) act(t, t.hand!.toAct, legalActions(t, t.hand!.toAct)!.check ? { type: "check" } : { type: "call" });
+    if (t.hand!.result) continue;
+    const seat = t.hand!.toAct;
+    const before = botView(t, seat, BIG_BLIND)!;
+    const moveBefore = decide(before, seeded(trial));
+    // Swap every card the bot shouldn't know: other players' hole cards and the undealt deck
+    const visible = new Set([...t.seats[seat]!.hole, ...t.hand!.board]);
+    const hidden = freshDeck().filter((c) => !visible.has(c));
+    const reshuffled = secureShuffle(hidden);
+    let k = 0;
+    t.seats.forEach((s, i) => { if (s && i !== seat) s.hole = s.hole.map(() => reshuffled[k++]); });
+    t.hand!.deck = t.hand!.deck.map((c) => (visible.has(c) ? c : reshuffled[k++ % reshuffled.length]));
+    const after = botView(t, seat, BIG_BLIND)!;
+    assert.deepEqual(after, before, "the view changed when hidden cards changed");
+    assert.deepEqual(decide(after, seeded(trial)), moveBefore, "the move changed when hidden cards changed");
+    const json = JSON.stringify(after);
+    t.seats.forEach((s, i) => { if (s && i !== seat) for (const c of s.hole) assert.ok(!json.includes(`"${c}"`) || visible.has(c), `view leaks ${c}`); });
+  }
+});
+
+await test("player seeds: an honest seeded deal verifies for every seat; a changed, added or dropped seed fails", async () => {
+  const seeds = [newSeed(), newSeed(), newSeed()];
+  for (let me = 0; me < 4; me++) assert.ok(await verifyDeal((await showdownFor(me, seeds)).input), `seat ${me}`);
+  const { input } = await showdownFor(0, seeds);
+  assert.ok(!(await verifyDeal({ ...input, seeds: [...input.seeds.slice(1), newSeed()] })), "changed seed");
+  assert.ok(!(await verifyDeal({ ...input, seeds: [...input.seeds, newSeed()] })), "extra seed");
+  assert.ok(!(await verifyDeal({ ...input, seeds: input.seeds.slice(1) })), "dropped seed");
+});
+
+await test("player seeds decide the final order: same committed deck, different seeds, different deal", async () => {
+  const commit = "ab".repeat(32);
+  const a = await permutationFrom(commit, [newSeed()]);
+  const b = await permutationFrom(commit, [newSeed()]);
+  for (const p of [a, b]) assert.deepEqual([...p].sort((x, y) => x - y), [...Array(52).keys()], "not a permutation");
+  assert.notDeepEqual(a, b);
+  assert.deepEqual(await permutationFrom(commit, ["01".repeat(16), "02".repeat(16)]), await permutationFrom(commit, ["02".repeat(16), "01".repeat(16)]), "seed order must not matter");
+  assert.deepEqual(await permutationFrom(commit, []), [...Array(52).keys()], "no seeds: dealt as committed");
+  // Every card lands in every position about equally often (no bias from the mixing)
+  const counts = Array.from({ length: 52 }, () => new Array(52).fill(0));
+  for (let i = 0; i < 2000; i++) (await permutationFrom(commit, [newSeed()])).forEach((src, pos) => counts[pos][src]++);
+  const flat = counts.flat();
+  assert.ok(Math.min(...flat) > 10 && Math.max(...flat) < 80, `uneven placement: ${Math.min(...flat)}..${Math.max(...flat)} (expect ~38)`);
 });
 
 console.log(`\n${passed} tests passed`);
