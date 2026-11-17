@@ -33,7 +33,7 @@ function spinStopsSync(serverSeed: string, clientSeed: string, nonce: number, ma
 
 // The published figures. If a strip or a paytable changes, these must be changed with it, on purpose.
 const PUBLISHED: Record<string, { combos: number; totalMult: number; rtp: string }> = {
-  sevens: { combos: 13_824, totalMult: 13_162, rtp: "95.21" },
+  sevens2: { combos: 13_824, totalMult: 13_160, rtp: "95.20" },
   royal: { combos: 121_000, totalMult: 114_923, rtp: "94.98" },
 };
 
@@ -110,17 +110,28 @@ await test("royal: hands are ranked like poker", () => {
   assert.deepEqual(royals, ["royal", "royal"]); // two of the four royal flushes can land, as enumerated
 });
 
-await test("sevens: the paytable is applied as published", () => {
-  const reels = MACHINES.sevens.reels;
+await test("sevens2: the paytable is applied as published; a cherry pays in any column", () => {
+  const reels = MACHINES.sevens2.reels;
   const find = (syms: string[]) => syms.map((s, i) => reels[i].indexOf(s));
-  assert.equal(evaluate("sevens", find(["7", "7", "7"])).mult, 200);
-  assert.equal(evaluate("sevens", find(["B1", "B2", "B3"])).key, "ANYBAR");
-  assert.equal(evaluate("sevens", find(["B2", "B2", "B2"])).mult, 40);
-  assert.equal(evaluate("sevens", find(["CHERRY", "CHERRY", "LEMON"])).mult, 4);
-  assert.equal(evaluate("sevens", find(["CHERRY", "LEMON", "CHERRY"])).mult, 2);
-  assert.equal(evaluate("sevens", find(["LEMON", "CHERRY", "CHERRY"])).mult, 0);
-  assert.equal(evaluate("sevens", find(["BELL", "BELL", "7"])).mult, 0);
+  const ev = (syms: string[]) => evaluate("sevens2", find(syms));
+  assert.equal(ev(["7", "7", "7"]).mult, 200);
+  assert.equal(ev(["B1", "B2", "B3"]).key, "ANYBAR");
+  assert.equal(ev(["B2", "B2", "B2"]).mult, 40);
+  assert.equal(ev(["CHERRY", "CHERRY", "CHERRY"]).mult, 8);
+  for (const line of [["CHERRY", "LEMON", "BELL"], ["LEMON", "CHERRY", "BELL"], ["LEMON", "BELL", "CHERRY"]]) assert.equal(ev(line).mult, 2); // one cherry, any column
+  for (const line of [["CHERRY", "CHERRY", "LEMON"], ["CHERRY", "LEMON", "CHERRY"], ["LEMON", "CHERRY", "CHERRY"]]) assert.equal(ev(line).mult, 4); // two cherries, any columns
+  assert.deepEqual(ev(["LEMON", "BELL", "CHERRY"]).cells, [2]);
+  assert.equal(ev(["BELL", "BELL", "7"]).mult, 0);
   for (const r of reels) assert.equal(r.length, 24);
+});
+
+await test("the retired first edition stays published unchanged, so spins made on it still verify", () => {
+  assert.ok(MACHINES.sevens.retired && !MACHINE_IDS.includes("sevens"));
+  const r = exactRtp("sevens");
+  assert.equal(r.totalMult, 13_162);
+  const find = (syms: string[]) => syms.map((s, i) => MACHINES.sevens.reels[i].indexOf(s));
+  assert.equal(evaluate("sevens", find(["CHERRY", "LEMON", "CHERRY"])).mult, 2); // its old rule: left reel only
+  assert.equal(evaluate("sevens", find(["LEMON", "CHERRY", "CHERRY"])).mult, 0);
 });
 
 await test("an outcome is fixed by the seeds, nonce and machine alone, and the browser code agrees with the server path", async () => {

@@ -1,6 +1,6 @@
 // Types for public/machines.js, which the server imports too (one implementation for both sides).
 export interface Pay { key: string; label: string; mult: number; show?: string[]; example?: string[] }
-export interface Machine { id: string; name: string; kind: "classic" | "cards"; rows: number; blurb: string; reels: string[][]; pays: Pay[] }
+export interface Machine { id: string; name: string; kind: "classic" | "cards"; rows: number; blurb: string; reels: string[][]; pays: Pay[]; retired?: boolean; cherries?: string }
 export const STAKES: number[];
 export function formatMoney(pence: number): string;
 export const MIN_SPIN_MS: number;

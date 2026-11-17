@@ -21,14 +21,14 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
 
   // ---- lobby: poker and both machines side by side, RTP on the card
   const cards = await pg.$$eval('[data-testid="games"] .game-card', (els) => els.map((e) => ({ game: e.dataset.game, text: e.textContent.replace(/\s+/g, " "), visible: e.getBoundingClientRect().height > 0 })));
-  check(cards.map((c) => c.game).join() === "poker,sevens,royal" && cards.every((c) => c.visible), "the lobby offers Hold'em, Lucky Sevens and Royal Reels");
-  check(/returns 95\.21%/.test(cards[1].text) && /returns 94\.98%/.test(cards[2].text) && /10p to £5 of play money/.test(cards[1].text), "each slot card states its stakes (play money) and its return to player");
+  check(cards.map((c) => c.game).join() === "poker,sevens2,royal" && cards.every((c) => c.visible), "the lobby offers Hold'em, Lucky Sevens and Royal Reels");
+  check(/returns 95\.20%/.test(cards[1].text) && /returns 94\.98%/.test(cards[2].text) && /10p to £5 of play money/.test(cards[1].text), "each slot card states its stakes (play money) and its return to player");
   check(await pg.isVisible('[data-testid="play"]'), "poker's Take a seat is still there");
 
-  for (const id of ["sevens", "royal"]) {
+  for (const id of ["sevens2", "royal"]) {
     await pg.click(`[data-testid="play-${id}"]`);
     await pg.waitForSelector('[data-testid="spin"]:not([disabled])');
-    const reels = id === "sevens" ? 3 : 5;
+    const reels = id === "sevens2" ? 3 : 5;
     check((await pg.$$("#reel-window .reel")).length === reels, `${id}: ${reels} reels`);
     const stakeKeys = await pg.$$eval("#stakes [data-stake]", (b) => b.map((x) => x.textContent));
     check(stakeKeys.join() === "10p,20p,50p,£1,£2,£5", `${id}: stake keys are 10p, 20p, 50p, £1, £2, £5 and nothing higher`);
@@ -57,7 +57,7 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
     check(st.nonce === nonce0 + 1, `${id}: exactly one spin was made (no second spin from the extra presses)`);
     await pg.waitForTimeout(1200);
     check((await pg.evaluate(() => window.__slots.state.nonce)) === nonce0 + 1 && !(await pg.evaluate(() => window.__slots.spinning)), `${id}: nothing spins by itself afterwards`);
-    const kind = id === "sevens" ? "slot-classic" : "slot-royal";
+    const kind = id === "sevens2" ? "slot-classic" : "slot-royal";
     const heard = await pg.evaluate((from) => window.__sound.played.slice(from).filter((n) => n.startsWith("slot-") && !n.includes("-win-")), heardFrom);
     check(heard.filter((n) => n === `${kind}-start`).length === 1 && heard.filter((n) => n === `${kind}-spin`).length === 1 && heard.filter((n) => n === `${kind}-stop`).length === reels && heard.every((n) => n.startsWith(kind)),
       `${id}: its own sounds played: one start, one spin bed, ${reels} reel stops (${heard.length} in all)`);
@@ -89,8 +89,8 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
     // ---- paytable, exact RTP and the reel strips are published in the page
     await pg.click('[data-testid="slot-info"]');
     await pg.waitForTimeout(600);
-    check(new RegExp(id === "sevens" ? "95\\.21%" : "94\\.98%").test(await pg.textContent('[data-testid="rtp"]')), `${id}: the info panel shows the exact return to player`);
-    check((await pg.$$('[data-testid="paytable"] .pt-row')).length === (id === "sevens" ? 12 : 9) && (await pg.$$('[data-testid="strips"] .strip')).length === reels, `${id}: full paytable and every reel strip are shown`);
+    check(new RegExp(id === "sevens2" ? "95\\.20%" : "94\\.98%").test(await pg.textContent('[data-testid="rtp"]')), `${id}: the info panel shows the exact return to player`);
+    check((await pg.$$('[data-testid="paytable"] .pt-row')).length === (id === "sevens2" ? 12 : 9) && (await pg.$$('[data-testid="strips"] .strip')).length === reels, `${id}: full paytable and every reel strip are shown`);
 
     // ---- provably fair: reveal the server seed and re-play every spin in the browser
     await pg.click('[data-testid="tab-fair"]');
@@ -132,7 +132,7 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
   await pg.click('[data-testid="sound"]');
   await pg.check('[data-testid="snd-music"]');
   await pg.click('[data-testid="sound"]');
-  await pg.click('[data-testid="play-sevens"]');
+  await pg.click('[data-testid="play-sevens2"]');
   await pg.waitForFunction(() => window.__sound.track === "music-slots", null, { timeout: 8000 }).catch(() => {});
   check((await pg.evaluate(() => window.__sound.track)) === "music-slots", "Lucky Sevens plays its own music when music is on");
   await pg.click('[data-testid="slot-stop"]'); await pg.click('[data-testid="sum-done"]');
@@ -142,7 +142,7 @@ const check = (ok, msg) => { console.log(`${ok ? "ok  " : "FAIL"} - ${msg}`); if
   // ---- phone: nothing spills off the screen
   const ph = await (await browser.newContext({ viewport: { width: 390, height: 780 }, storageState: await ctx.storageState() })).newPage();
   ph.on("pageerror", (e) => errs.push(e.message));
-  for (const id of ["sevens", "royal"]) {
+  for (const id of ["sevens2", "royal"]) {
     await ph.goto(`${base}/?game=${id}`);
     await ph.waitForSelector('[data-testid="spin"]:not([disabled])');
     const fit = await ph.evaluate(() => ({ scroll: document.documentElement.scrollWidth, w: innerWidth, win: document.getElementById("reel-window").getBoundingClientRect() }));

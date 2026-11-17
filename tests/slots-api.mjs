@@ -29,36 +29,36 @@ check(!JSON.stringify(s0).includes("serverSeed") && s0.clientSeed === null && s0
 check(JSON.stringify(s0.stakes) === "[10,20,50,100,200,500]" && s0.minSpinMs >= 2500, "stakes are 10p to £5 and the minimum spin time is 2.5 s");
 
 // 2. spins need a client seed, a real machine and an allowed stake
-check((await post("/api/slots/spin", T, { machine: "sevens", stake: 10, rid: rid() }))[0] === 409, "no spin before the player has supplied a seed");
+check((await post("/api/slots/spin", T, { machine: "sevens2", stake: 10, rid: rid() }))[0] === 409, "no spin before the player has supplied a seed");
 check((await post("/api/slots/seed", T, { clientSeed: "bad:seed" }))[0] === 400, "a malformed client seed is refused");
 const [, s1] = await post("/api/slots/seed", T, { clientSeed: "first-try" });
 const [, s2] = await post("/api/slots/seed", T, { clientSeed: "my-seed-1" });
 check(s1.revealed === null && s2.revealed === null && s2.commit === s0.commit && s2.clientSeed === "my-seed-1", "before the first spin the client seed can be changed without touching the committed server seed");
-for (const [body, why] of [[{ machine: "sevens", stake: 1000, rid: rid() }, "a £10 stake"], [{ machine: "sevens", stake: 501, rid: rid() }, "a £5.01 stake"], [{ machine: "sevens", stake: 5, rid: rid() }, "a 5p stake"], [{ machine: "sevens", stake: 10.5, rid: rid() }, "a fractional stake"], [{ machine: "sevens", stake: -10, rid: rid() }, "a negative stake"],
-  [{ machine: "nope", stake: 10, rid: rid() }, "an unknown machine"], [{ machine: "__proto__", stake: 10, rid: rid() }, "a prototype name as machine"], [{ machine: "sevens", stake: 10 }, "a spin with no press id"]])
+for (const [body, why] of [[{ machine: "sevens2", stake: 1000, rid: rid() }, "a £10 stake"], [{ machine: "sevens2", stake: 501, rid: rid() }, "a £5.01 stake"], [{ machine: "sevens2", stake: 5, rid: rid() }, "a 5p stake"], [{ machine: "sevens2", stake: 10.5, rid: rid() }, "a fractional stake"], [{ machine: "sevens2", stake: -10, rid: rid() }, "a negative stake"],
+  [{ machine: "sevens", stake: 10, rid: rid() }, "the retired first edition of Lucky Sevens"], [{ machine: "nope", stake: 10, rid: rid() }, "an unknown machine"], [{ machine: "__proto__", stake: 10, rid: rid() }, "a prototype name as machine"], [{ machine: "sevens2", stake: 10 }, "a spin with no press id"]])
   check((await post("/api/slots/spin", T, body))[0] === 400, `${why} is refused`);
 
 // 3. a spin moves exactly stake and payout through the ledger
 const before = await audit(T);
 const press = rid();
-const [st1, r1] = await post("/api/slots/spin", T, { machine: "sevens", stake: 20, rid: press });
+const [st1, r1] = await post("/api/slots/spin", T, { machine: "sevens2", stake: 20, rid: press });
 check(st1 === 200 && r1.ok && r1.spin.nonce === 1 && r1.nonce === 1 && r1.spin.stake === 20, "first spin is nonce 1");
-check(r1.spin.payout === evaluate("sevens", r1.spin.stops).mult * 20, "payout is the published paytable times the stake");
+check(r1.spin.payout === evaluate("sevens2", r1.spin.stops).mult * 20, "payout is the published paytable times the stake");
 const after = await audit(T);
 check(after.sum === 0, "ledger still sums to zero");
 check(acct(after, me) - acct(before, me) === r1.spin.payout - 20 && r1.balance === acct(after, me), "the player's balance moved by exactly payout minus stake");
 check(!JSON.stringify(r1).includes("serverSeed"), "a spin reply never contains the server seed");
 
 // 4. the same press again is the same spin; pressing too soon is refused (no turbo, no double spin)
-const [, again] = await post("/api/slots/spin", T, { machine: "sevens", stake: 20, rid: press });
+const [, again] = await post("/api/slots/spin", T, { machine: "sevens2", stake: 20, rid: press });
 check(again.ok && again.replay && again.spin.nonce === 1 && JSON.stringify(again.spin.stops) === JSON.stringify(r1.spin.stops), "re-sending the same press returns the same spin, not a new one");
-const [tooSoon, soon] = await post("/api/slots/spin", T, { machine: "sevens", stake: 10, rid: rid() });
+const [tooSoon, soon] = await post("/api/slots/spin", T, { machine: "sevens2", stake: 10, rid: rid() });
 check(tooSoon === 429 && soon.retryInMs > 0 && soon.retryInMs <= 2500, "a second spin inside 2.5 s is refused");
 check(acct(await audit(T), me) === acct(after, me), "the refused and repeated presses moved no chips");
 await wait(PACE);
 
 // 5. two tabs press at the same moment: one spin, not two
-const both = await Promise.all([post("/api/slots/spin", T, { machine: "royal", stake: 10, rid: rid() }), post("/api/slots/spin", T, { machine: "sevens", stake: 10, rid: rid() })]);
+const both = await Promise.all([post("/api/slots/spin", T, { machine: "royal", stake: 10, rid: rid() }), post("/api/slots/spin", T, { machine: "sevens2", stake: 10, rid: rid() })]);
 check(both.filter(([c]) => c === 200).length === 1 && both.filter(([c]) => c === 429).length === 1, "two simultaneous presses (two tabs, two machines) make exactly one spin");
 check((await j("/api/slots", {}, T))[1].nonce === 2, "the nonce advanced by one");
 await wait(PACE);
@@ -70,9 +70,9 @@ for (const stage of ["stake", "payout"]) {
     const b0 = await audit(T), n0 = (await j("/api/slots", {}, T))[1].nonce;
     await post("/api/slots/debug/crash", T, { stage });
     const p = rid();
-    const [code] = await post("/api/slots/spin", T, { machine: "sevens", stake: 10, rid: p }).catch(() => [0]);
+    const [code] = await post("/api/slots/spin", T, { machine: "sevens2", stake: 10, rid: p }).catch(() => [0]);
     const [, st] = await j("/api/slots", {}, T); // the restarted object recovers before answering
-    const [, replay] = await post("/api/slots/spin", T, { machine: "sevens", stake: 10, rid: p });
+    const [, replay] = await post("/api/slots/spin", T, { machine: "sevens2", stake: 10, rid: p });
     const b1 = await audit(T);
     if (code === 200) { await wait(PACE); continue; } // (payout stage only) that spin paid nothing, so no crash point was reached
     check(st.nonce === n0 + 1 && replay.ok && replay.replay && replay.spin.nonce === n0 + 1, `crash after the ${stage} transfer: the spin was finished by recovery and the same press replays it`);
@@ -86,7 +86,7 @@ for (const stage of ["stake", "payout"]) {
 // 7. a short run on both machines, then reveal and re-verify everything
 const seen = [];
 for (let k = 0; k < 6; k++) {
-  const machine = k % 2 ? "royal" : "sevens";
+  const machine = k % 2 ? "royal" : "sevens2";
   const [, r] = await post("/api/slots/spin", T, { machine, stake: [10, 20, 50, 100, 200, 500][k], rid: rid() });
   check(r.ok && r.commit === s0.commit && r.spin.payout === evaluate(machine, r.spin.stops).mult * r.spin.stake, `spin ${r.spin?.nonce} on ${MACHINES[machine].name} under the same committed seed`);
   seen.push(r.spin);

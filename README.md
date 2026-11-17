@@ -56,7 +56,7 @@ win is always the paytable multiple of the stake.
 
 | Machine | What it is | Exact RTP | Combinations | Top win |
 |---|---|---|---|---|
-| Lucky Sevens | Classic 3 reels of 24 stops, one win line: fruit, bars, bells, sevens | 95.21% (13,162 / 13,824) | 13,824 | 200× |
+| Lucky Sevens | Classic 3 reels of 24 stops, one win line: fruit, bars, bells, sevens; a cherry pays in any column | 95.20% (13,160 / 13,824) | 13,824 | 200× |
 | Royal Reels | One 52-card deck dealt across 5 reels (each card on exactly one reel); the middle row pays as a poker hand. Drawn with the player's equipped deck, room and celebration | 94.98% (114,923 / 121,000) | 121,000 | 2,500× |
 
 Fairness: the server commits to a secret seed (its SHA-256 is shown) before any spin; the player's browser supplies a

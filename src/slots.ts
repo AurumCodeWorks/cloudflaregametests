@@ -98,7 +98,7 @@ export class SlotSession extends DurableObject<Env> {
       if (typeof rid !== "string" || !/^[0-9a-f]{16,32}$/.test(rid)) return { ok: false, status: 400, error: "Bad spin request." };
       // The same press sent twice (a retry after a dropped connection): the same spin back, never a second one
       if (p.last?.rid === rid) return { ok: true, spin: p.last, replay: true, ...this.view(p), balance: p.last.balance };
-      if (typeof machine !== "string" || !Object.hasOwn(MACHINES, machine)) return { ok: false, status: 400, error: "No such machine." };
+      if (typeof machine !== "string" || !Object.hasOwn(MACHINES, machine) || MACHINES[machine].retired) return { ok: false, status: 400, error: "No such machine." };
       if (typeof stake !== "number" || !STAKES.includes(stake)) return { ok: false, status: 400, error: `Stakes are ${STAKES.map(formatMoney).join(", ")} of play money per spin.` };
       if (!p.clientSeed) return { ok: false, status: 409, error: "Set your seed first." };
       const now = Date.now();

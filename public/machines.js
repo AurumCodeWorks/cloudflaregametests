@@ -37,6 +37,12 @@ const SEVENS_PAYS = [
   { key: "CHERRY2", label: "Cherries on reels 1 and 2", show: ["CHERRY", "CHERRY", "ANY"], mult: 4 },
   { key: "CHERRY1", label: "Cherry on reel 1", show: ["CHERRY", "ANY", "ANY"], mult: 2 },
 ];
+// Lucky Sevens as it plays now: a cherry counts wherever it lands on the win line
+const SEVENS2_PAYS = [
+  ...SEVENS_PAYS.filter((p) => !p.key.startsWith("CHERRY") || p.key === "CHERRY"),
+  { key: "CHERRY2", label: "Any two cherries", show: ["CHERRY", "CHERRY", "ANY"], mult: 4 },
+  { key: "CHERRY1", label: "Any one cherry", show: ["CHERRY", "ANY", "ANY"], mult: 2 },
+];
 const ROYAL_PAYS = [
   { key: "royal", label: "Royal flush", mult: 2500, example: ["Ts", "Js", "Qs", "Ks", "As"] },
   { key: "straightflush", label: "Straight flush", mult: 500, example: ["5h", "6h", "7h", "8h", "9h"] },
@@ -50,8 +56,21 @@ const ROYAL_PAYS = [
 ];
 
 export const MACHINES = {
+  sevens2: {
+    id: "sevens2", name: "Lucky Sevens", kind: "classic", rows: 3, cherries: "any",
+    blurb: "Three reels, one win line. Fruit, bars, bells and sevens.",
+    // 24 stops per reel; the win line is the middle row
+    reels: [
+      ["LEMON", "ORANGE", "B1", "B3", "PLUM", "LEMON", "B2", "BELL", "CHERRY", "ORANGE", "LEMON", "B1", "PLUM", "B2", "LEMON", "BELL", "7", "ORANGE", "B1", "LEMON", "PLUM", "B2", "CHERRY", "BELL"],
+      ["B2", "PLUM", "B1", "CHERRY", "LEMON", "B2", "B3", "PLUM", "7", "BELL", "B2", "B3", "LEMON", "B1", "B2", "PLUM", "LEMON", "B3", "BELL", "B2", "7", "ORANGE", "LEMON", "B3"],
+      ["B2", "B1", "BELL", "CHERRY", "LEMON", "B2", "ORANGE", "B1", "7", "PLUM", "B2", "ORANGE", "LEMON", "BELL", "B2", "B1", "LEMON", "ORANGE", "PLUM", "B2", "7", "B3", "LEMON", "ORANGE"],
+    ],
+    pays: SEVENS2_PAYS,
+  },
+  // The first Lucky Sevens (cherries paid from the left reel only). Retired: it can no longer be spun, but its
+  // strips and paytable stay published so every spin made on it can still be re-verified.
   sevens: {
-    id: "sevens", name: "Lucky Sevens", kind: "classic", rows: 3,
+    id: "sevens", name: "Lucky Sevens (first edition)", kind: "classic", rows: 3, retired: true,
     blurb: "Three reels, one win line. Fruit, bars, bells and sevens.",
     // 24 stops per reel; the win line is the middle row
     reels: [
@@ -75,15 +94,20 @@ export const MACHINES = {
     pays: ROYAL_PAYS,
   },
 };
-export const MACHINE_IDS = Object.keys(MACHINES);
+/** The machines that can be played now (retired ones stay in MACHINES for verifying old spins). */
+export const MACHINE_IDS = Object.keys(MACHINES).filter((id) => !MACHINES[id].retired);
 export const reelSizes = (id) => MACHINES[id].reels.map((r) => r.length);
 /** The symbols on the win line for these stops. */
 export const lineOf = (id, stops) => MACHINES[id].reels.map((r, i) => r[stops[i]]);
 
 const isBar = (s) => s === "B1" || s === "B2" || s === "B3";
-function sevensLine([a, b, c]) {
+function sevensLine([a, b, c], anyCherry) {
   if (a === b && b === c) return { key: a === "7" ? "777" : a, cells: [0, 1, 2] };
   if (isBar(a) && isBar(b) && isBar(c)) return { key: "ANYBAR", cells: [0, 1, 2] };
+  if (anyCherry) { // a cherry pays wherever it lands on the line
+    const cells = [a, b, c].flatMap((x, i) => (x === "CHERRY" ? [i] : []));
+    return cells.length ? { key: cells.length === 2 ? "CHERRY2" : "CHERRY1", cells } : null;
+  }
   if (a === "CHERRY" && b === "CHERRY") return { key: "CHERRY2", cells: [0, 1] };
   if (a === "CHERRY") return { key: "CHERRY1", cells: [0] };
   return null;
@@ -120,7 +144,7 @@ function pokerLine(cards) {
 export function evaluate(id, stops) {
   const m = MACHINES[id];
   const line = lineOf(id, stops);
-  const hit = m.kind === "classic" ? sevensLine(line) : pokerLine(line);
+  const hit = m.kind === "classic" ? sevensLine(line, m.cherries === "any") : pokerLine(line);
   if (!hit) return { mult: 0, key: null, label: null, cells: [], line };
   const pay = m.pays.find((p) => p.key === hit.key);
   return { mult: pay.mult, key: pay.key, label: pay.label, cells: hit.cells, line };

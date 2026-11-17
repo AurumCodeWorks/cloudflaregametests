@@ -7,7 +7,7 @@
 //   - a return of the stake or less is shown plainly, with no win sound and no celebration
 //   - time played and the session's net result are always on screen, next to a Stop button
 import { CLIENT_SEED, newSeed, verifySpin } from "./fair.js";
-import { celebrationTier, evaluate, exactRtp, formatMoney, MACHINES, MIN_SPIN_MS, reelSizes, STAKES } from "./machines.js";
+import { celebrationTier, evaluate, exactRtp, formatMoney, MACHINE_IDS, MACHINES, MIN_SPIN_MS, reelSizes, STAKES } from "./machines.js";
 
 const $ = (id) => document.getElementById(id);
 const money = formatMoney; // amounts are play-money pence
@@ -39,11 +39,11 @@ export function createSlots({ api, toast, cardEl, FX, Sound, show, app }) {
     verified: {}, // seedNo -> { ok, spins, problem }
     lastTier: "none",
   };
-  const rtp = Object.fromEntries(Object.keys(MACHINES).map((id) => [id, exactRtp(id)]));
+  const rtp = Object.fromEntries(MACHINE_IDS.map((id) => [id, exactRtp(id)]));
   window.__slots = s; // test hook
 
   // ---------------------------------------------------------------- lobby cards
-  for (const id of Object.keys(MACHINES)) {
+  for (const id of MACHINE_IDS) {
     const meta = document.querySelector(`[data-game-meta="${id}"]`);
     if (meta) meta.textContent = `${MACHINES[id].blurb} ${money(STAKES[0])} to ${money(STAKES.at(-1))} of play money a spin · returns ${(rtp[id].rtp * 100).toFixed(2)}%`;
     document.querySelector(`[data-game="${id}"] button`)?.addEventListener("click", () => open(id));
@@ -283,7 +283,8 @@ export function createSlots({ api, toast, cardEl, FX, Sound, show, app }) {
   }
 
   async function open(id) {
-    if (!MACHINES[id]) return;
+    if (id === "sevens") id = "sevens2"; // old links to Lucky Sevens
+    if (!MACHINE_IDS.includes(id)) return;
     s.machine = id;
     s.openedAt = Date.now();
     const m = MACHINES[id];
