@@ -107,6 +107,8 @@ function newLogLines(oldLog = [], newLog = []) {
 function show(screen) {
   for (const s of ["login", "lobby", "table"]) $(`screen-${s}`).hidden = s !== screen;
   for (const id of ["leave-btn", "fair-btn", "history-btn"]) $(id).hidden = screen !== "table";
+  $("invite-btn").hidden = screen !== "table" || !app.tableId?.startsWith("p-") || app.watching;
+  if (screen === "lobby") openLobbyFeed(); else closeLobbyFeed(); // the live table list only while you're looking at it
   $("shop-btn").hidden = screen === "login" || !!app.demo;
   $("wallet-balance").parentElement.hidden = screen === "login";
   if (screen !== "table") setDrawer(false);
@@ -156,22 +158,99 @@ $("login-form").addEventListener("submit", async (e) => {
     localStorage.setItem("token", r.token);
     await refreshMe();
     await loadShop();
-    show("lobby");
+    // Came from an invite link? Straight to that table
+    const invited = new URLSearchParams(location.search).get("table");
+    if (invited) await joinTable(invited);
+    else show("lobby");
   } catch (err) {
     toast(err.message);
   }
 });
 
-$("play-btn").addEventListener("click", async () => {
+// ---------------------------------------------------------------- choosing a table
+const tableName = (id) => (id?.startsWith("p-") ? "your private table" : `Table ${id?.slice(2, 6).toUpperCase()}`);
+/** Sit at a table: quick seat (no id), a table from the list or an invite link, or a new private table. */
+async function joinTable(tableId, { private: priv = false } = {}) {
   try {
-    const { tableId } = await api("/api/play", { method: "POST" });
-    connect(tableId);
+    const r = await api("/api/play", { method: "POST", body: JSON.stringify(priv ? { private: true } : tableId ? { tableId } : {}) });
+    if (r.rejoined && tableId && r.tableId !== tableId) toast("You still have a seat at another table, so you're going back to it.");
+    if (r.private) toast("Private table opened. Use Invite (top right) to share the link.");
+    if (location.search.includes("table=")) history.replaceState(null, "", location.pathname);
+    connect(r.tableId);
   } catch (err) {
     toast(err.message);
   }
+}
+$("play-btn").addEventListener("click", () => joinTable(null));
+$("private-btn").addEventListener("click", () => joinTable(null, { private: true }));
+$("invite-btn").addEventListener("click", async () => {
+  const link = `${location.origin}/?table=${app.tableId}`;
+  try { await navigator.clipboard.writeText(link); toast("Invite link copied. Send it to the people you want to play with."); }
+  catch { toast(`Share this link: ${link}`); }
 });
+$("watch-join").addEventListener("click", async () => {
+  const id = app.tableId;
+  const ws = app.ws;
+  app.ws = null;
+  ws?.close();
+  await joinTable(id);
+});
+$("watch-leave").addEventListener("click", () => leaveWatching());
+function leaveWatching() {
+  const ws = app.ws;
+  app.ws = null;
+  ws?.close();
+  app.watching = false;
+  refreshMe().catch(() => {}).finally(() => show("lobby"));
+}
 
-$("leave-btn").addEventListener("click", () => send({ type: "leave" }));
+// The live list of tables: one connection while the lobby is on screen; the server pushes every change
+let lobbyFeed = null;
+function openLobbyFeed() {
+  if (lobbyFeed || !app.token || app.demo) return;
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  const ws = new WebSocket(`${proto}://${location.host}/ws/lobby?token=${encodeURIComponent(app.token)}`);
+  lobbyFeed = ws;
+  const beat = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send("ping"), 25000);
+  ws.onmessage = (e) => { if (e.data === "pong") return; const m = JSON.parse(e.data); if (m.type === "tables") renderTables(m.tables); };
+  ws.onclose = () => {
+    clearInterval(beat);
+    if (lobbyFeed !== ws) return;
+    lobbyFeed = null;
+    if (!$("screen-lobby").hidden) setTimeout(openLobbyFeed, 3000);
+  };
+}
+function closeLobbyFeed() { const ws = lobbyFeed; lobbyFeed = null; ws?.close(); }
+function renderTables(list) {
+  $("tables-count").textContent = list.length ? `· ${list.length}` : "";
+  if (!list.length) {
+    $("tables").innerHTML = `<p class="tables-empty">No tables running right now. Take a seat to start one: bots fill the empty seats until people join.</p>`;
+    return;
+  }
+  $("tables").replaceChildren(...list.map((t) => {
+    const row = document.createElement("div");
+    row.className = "trow";
+    row.dataset.table = t.id;
+    const full = t.people + t.waiting >= t.seats;
+    const dots = Array.from({ length: t.seats }, (_, i) => `<i class="${i < t.people - t.away ? "p" : i < t.people ? "a" : i < t.people + t.bots ? "b" : ""}"></i>`).join("");
+    const live = t.street ? `<span class="t-live">Pot ${t.pot.toLocaleString()}</span> · hand #${t.handNo}, ${t.street}` : t.lastPot ? `Between hands · last pot ${t.lastPot.toLocaleString()}` : "Starting";
+    const ppl = t.people + t.waiting; // people about to be seated count too
+    const who = [`${ppl} ${ppl === 1 ? "person" : "people"}`, t.bots ? `${t.bots} bot${t.bots === 1 ? "" : "s"}` : "", t.away ? `${t.away} away` : "", t.watchers ? `${t.watchers} watching` : ""].filter(Boolean).join(" · ");
+    row.innerHTML = `
+      <div class="t-name">${tableName(t.id)}</div>
+      <div class="t-btns">
+        <button class="btn btn-gold" data-act="join" ${full ? "disabled" : ""}>${full ? "Full" : "Join"}</button>
+        <button class="btn btn-quiet" data-act="watch">Watch</button>
+      </div>
+      <div class="t-meta"><span class="seat-dots" aria-hidden="true">${dots}</span>Blinds ${t.blinds[0]}/${t.blinds[1]} · buy-in ${t.buyIn} · ${who}</div>
+      <div class="t-meta">${live}</div>`;
+    row.querySelector('[data-act="join"]').onclick = () => joinTable(t.id);
+    row.querySelector('[data-act="watch"]').onclick = () => connect(t.id, { watch: true });
+    return row;
+  }));
+}
+
+$("leave-btn").addEventListener("click", () => (app.watching ? leaveWatching() : send({ type: "leave" })));
 // The details drawer; on wide screens the table moves aside for it (see #screen-table.drawer-open)
 function setDrawer(open) {
   $("drawer").classList.toggle("open", open);
@@ -184,15 +263,39 @@ $("drawer-close").addEventListener("click", () => setDrawer(false));
 addEventListener("keydown", (e) => e.key === "Escape" && setDrawer(false));
 
 // ---------------------------------------------------------------- websocket
-function connect(tableId) {
+// ---------------------------------------------------------------- the table connection (reconnects by itself)
+// A dropped connection never costs a seat: the server holds it (and the chips) for a few minutes, sits you
+// out of new hands, and this reconnects automatically. A reload or another device rejoins via /api/me.
+const RETRY_MS = [500, 1000, 2000, 3000, 5000];
+const reconnect = { attempts: 0, timer: null, since: 0 };
+function connect(tableId, { resume = false, watch = false } = {}) {
+  clearTimeout(reconnect.timer);
   const proto = location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${proto}://${location.host}/ws/table/${tableId}?token=${encodeURIComponent(app.token)}`);
+  const ws = new WebSocket(`${proto}://${location.host}/ws/table/${tableId}?token=${encodeURIComponent(app.token)}${watch ? "&watch=1" : ""}`);
   app.ws = ws;
   app.tableId = tableId;
+  app.watching = watch;
+  $("screen-table").classList.toggle("watching", watch);
+  $("watch-bar").hidden = !watch;
+  $("watch-name").textContent = tableName(tableId);
+  app.quietNext = true; // the first state after any (re)connect is drawn as it is now, without replaying animations
+  let lastHeard = Date.now();
+  // Heartbeat: the server answers "ping" without waking up; silence means a dead connection (common on phones)
+  const beat = setInterval(() => {
+    if (ws.readyState !== WebSocket.OPEN) return;
+    if (Date.now() - lastHeard > 35000) return ws.close(4000, "no heartbeat");
+    ws.send("ping");
+  }, 15000);
   ws.onmessage = (ev) => {
+    lastHeard = Date.now();
+    if (ev.data === "pong") return;
     const msg = JSON.parse(ev.data);
-    if (msg.type === "state") onState(msg);
-    else if (msg.type === "error") toast(msg.message);
+    if (msg.type === "state") {
+      if (reconnect.attempts) toast(msg.you.seat >= 0 ? "Reconnected. You're back in your seat." : "Reconnected to your table.");
+      reconnect.attempts = 0;
+      $("conn-banner").hidden = true;
+      onState(msg);
+    } else if (msg.type === "error") toast(msg.message);
     else if (msg.type === "toppedup") { Sound.play("chip-stack"); toast(`Topped up with ${msg.amount.toLocaleString()} chips`); refreshMe().catch(() => {}); }
     else if (msg.type === "stood") {
       // Back to the lobby straight away; don't wait for the socket's closing handshake
@@ -202,14 +305,56 @@ function connect(tableId) {
       refreshMe().catch(() => {}).finally(() => show("lobby"));
     }
   };
-  ws.onclose = async () => {
-    if (app.ws !== ws) return;
+  ws.onclose = (ev) => {
+    clearInterval(beat);
+    if (app.ws !== ws) return; // closed on purpose
     app.ws = null;
-    await refreshMe().catch(() => {});
-    show("lobby");
+    // Table full, not enough chips, table not running, or a misbehaving client: retrying won't help
+    if ([4001, 4002, 4004, 1008, 1009].includes(ev.code)) { app.watching = false; refreshMe().catch(() => {}).finally(() => show("lobby")); return; }
+    scheduleReconnect();
   };
   show("table");
 }
+function scheduleReconnect() {
+  if (!reconnect.attempts) reconnect.since = Date.now();
+  if (app.watching) { // nothing is held for a watcher: just reconnect quietly
+    $("conn-banner").hidden = false;
+    $("conn-text").textContent = "Connection lost. Reconnecting…";
+    reconnect.attempts++;
+    reconnect.timer = setTimeout(() => connect(app.tableId, { resume: true, watch: true }), RETRY_MS[Math.min(reconnect.attempts, RETRY_MS.length - 1)]);
+    return;
+  }
+  const holdMs = (app.state?.seatHoldSeconds ?? 180) * 1000;
+  const left = reconnect.since + holdMs - Date.now();
+  const banner = $("conn-banner");
+  banner.hidden = false;
+  if (left <= 0) {
+    $("conn-text").textContent = "Couldn't reconnect. Your chips are safe: they've gone back to your balance.";
+    return;
+  }
+  $("conn-text").textContent = `Connection lost. Reconnecting… Your seat and chips are held for ${Math.ceil(left / 60000)} min.`;
+  const delay = RETRY_MS[Math.min(reconnect.attempts, RETRY_MS.length - 1)];
+  reconnect.attempts++;
+  reconnect.timer = setTimeout(() => connect(app.tableId, { resume: true, watch: app.watching }), delay);
+}
+function reconnectNow() {
+  if (app.ws || !app.tableId || !reconnect.attempts) return;
+  clearTimeout(reconnect.timer);
+  connect(app.tableId, { resume: true, watch: app.watching });
+}
+addEventListener("online", reconnectNow);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) reconnectNow(); });
+$("conn-retry").addEventListener("click", reconnectNow);
+$("conn-lobby").addEventListener("click", () => {
+  // Your seat stays held until you come back or the hold runs out; Take a seat brings you back to it
+  clearTimeout(reconnect.timer);
+  reconnect.attempts = 0;
+  const ws = app.ws;
+  app.ws = null;
+  ws?.close();
+  $("conn-banner").hidden = true;
+  refreshMe().catch(() => {}).finally(() => show("lobby"));
+});
 function send(msg) {
   if (app.ws && app.ws.readyState === WebSocket.OPEN) app.ws.send(JSON.stringify(msg));
 }
@@ -277,7 +422,10 @@ function cardEl(code, { small = false, win = false, deck = null } = {}) {
 app.cardEl = cardEl;
 
 function onState(s) {
-  const old = app.state;
+  // Right after a reconnect, draw the table as it is now rather than animating from what we last saw
+  const old = app.quietNext ? null : app.state;
+  const quiet = app.quietNext;
+  app.quietNext = false;
   app.state = s;
   // Countdown to the next deal, kept on this device's clock from the time left the server reported
   app.nextAt = s.next ? Date.now() + s.next.inMs : null;
@@ -300,8 +448,8 @@ function onState(s) {
   const before = capture();
   render();
   const flights = syncPools(old, s);
-  drawPools(s, flights);
-  animateDiff(old, s, before, flights);
+  drawPools(s, quiet ? [] : flights); // quiet: every chip drawn where it is, none waiting to fly in
+  if (!quiet) animateDiff(old, s, before, flights);
 }
 
 /** Positions of things that may animate away, taken before the table is rebuilt. */
@@ -569,7 +717,8 @@ function render() {
     } else if (h?.result?.shown[i]) status = `<div class="status">${h.result.shown[i].hand}</div>`;
     else if (seat.allIn) status = `<div class="status allin">ALL IN</div>`;
     else if (seat.folded) status = `<div class="status">Folded</div>`;
-    else if (!seat.connected) status = `<div class="status">Disconnected</div>`;
+    else if (seat.away) status = `<div class="status">Away · seat held ${Math.max(1, Math.ceil((seat.heldForMs ?? 0) / 60000))} min</div>`;
+    else if (!seat.connected) status = `<div class="status">Reconnecting…</div>`;
     else if (h && h.toAct === i && !h.result) status = `<div class="status">${seat.you ? "Your turn" : "Thinking…"}</div>`;
     plate.innerHTML =
       `<div class="avatar" style="--av:${avatarTone(seat.name)}">${escapeHtml(display.trim()[0]?.toUpperCase() ?? "?")}</div>` +
@@ -877,6 +1026,14 @@ async function start() {
     try {
       await refreshMe();
       await loadShop();
+      // Seated somewhere (or a seat is being held for you)? Straight back to it: after a reload, a crash or on another device
+      const invited = new URLSearchParams(location.search).get("table");
+      if (invited && !app.user.table) { await joinTable(invited); return; }
+      if (app.user.table) {
+        toast("Rejoining your table…");
+        connect(app.user.table, { resume: true });
+        return;
+      }
       show("lobby");
       return;
     } catch {

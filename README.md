@@ -9,7 +9,7 @@ Multiplayer Texas Hold'em that runs entirely on Cloudflare. Free-play (play chip
 | Piece | Cloudflare product | What it does |
 |---|---|---|
 | `src/index.ts` | Worker | Website, JSON API (`/api/login`, `/api/me`, `/api/play`, `/api/daily`, `/api/hands/...`), WebSocket door |
-| `src/lobby.ts` | Durable Object (1) | Sends players to a table with a free seat, filling tables first |
+| `src/lobby.ts` | Durable Object (1) | Quick seat (fills tables first), private tables, remembers each player's table, pushes the live table list to lobby viewers over one hibernating WebSocket each |
 | `src/table.ts` | Durable Object (1 per table) | The authority: shuffles, deals, turns, timers, bots, chip movements |
 | `src/ledger.ts` + `migrations/` | D1 | Double-entry play-chip ledger; every transfer idempotent, balances can't go negative |
 | hand histories | R2 | Every finished hand, with the deck and salts, for audits and disputes |
@@ -18,6 +18,18 @@ Multiplayer Texas Hold'em that runs entirely on Cloudflare. Free-play (play chip
 | `src/stakes.ts` | — | Stake tiers and disclosed house fees (for a future licensed real-money mode) |
 | `src/shop.ts`, `src/catalog.ts` + `migrations/0002_shop.sql` | D1 | Cosmetics shop: catalogue, ownership, equipped items, purchases. `PAYMENTS_MODE=test` simulates checkout; a payment provider's confirmed-payment webhook would call `grantPurchase()` |
 | `public/` | (bundled into the Worker) | Client: table UI, animations, decks, rooms, chips, celebrations |
+
+Rooms: "Take a seat" puts you at the busiest table with a free seat; the lobby also lists every public table live
+(people, bots, watchers, stakes, the pot in play) with Join and Watch. Watchers get exactly what an unseated person
+sees (no hidden cards), up to 20 per table. Private tables have long unguessable ids, never appear in the list, are
+never used by quick seat, and are joined by an invite link (`/?table=p-...`).
+
+Disconnection recovery: a dropped player keeps their seat and chips for `AWAY_SECONDS` (default 180). They finish the
+current hand on the normal turn timer, then sit out (no blinds, no auto-folds) until they're back; after the hold
+their stack goes back to their balance. The client reconnects by itself (with a heartbeat the server answers without
+waking up), and a reload or another device rejoins via `/api/me`. Every chip movement (buy-in, top-up, re-buy,
+cash-out) is saved with the table before its ledger transfer and applied after, so a server restart in between is
+finished on the next event by retrying the same idempotent transfer: nothing is stranded.
 
 Cosmetics: decks, rooms, chip sets and win celebrations. Other players see your card backs and your win
 celebration; rooms and chip sets are how *you* see the table. Sign-ups are rate-limited to 5 per minute per IP.
@@ -56,6 +68,10 @@ node tests/hand-pace.mjs           # next hand deals after the normal pause, not
 node tests/between-hands.mjs       # countdown between hands, Top up, Continue (all ready = deal now)
 node tests/sound.cjs               # effects fire with the game, music follows the room, settings switch and persist
 node tests/seeds.mjs               # player seeds are mixed into the shuffle, can't be swapped, and the deal verifies
+node tests/reconnect.mjs           # seat held while away, sat out, released after the hold, crash recovery (AWAY_SECONDS:12, AUDIT:1)
+node tests/reconnect-full.mjs      # a full table whose players drop doesn't freeze the last player (AWAY_SECONDS:12)
+node tests/reconnect.cjs           # browser: reconnect banner, back in the same seat, reload rejoins, leaving really leaves
+node tests/lobby.cjs               # live table list, watching (no hidden cards), take a seat, private tables and invite links
 npm run test:cards                 # no part of any card touches another (needs the dev server)
 node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (needs the dev server)
 ```
@@ -69,7 +85,7 @@ npx wrangler deploy
 ```
 
 Settings live in `wrangler.jsonc` `vars`: `TURN_SECONDS`, `BOT_DELAY_MS`, `NEXT_HAND_MS`, `RAKE_PERCENT` (0 for free play),
-`STARTING_CHIPS`, `AUDIT` (keep "0" in production), `UNLIMITED` ("1" for the demo: balances are topped up from the mint
+`STARTING_CHIPS`, `AWAY_SECONDS` (how long a dropped player's seat is held), `AUDIT` (keep "0" in production), `UNLIMITED` ("1" for the demo: balances are topped up from the mint
 account, busted players re-buy instead of leaving, and every shop item unlocks free; set "0" to restore normal chips and
 `PAYMENTS_MODE`). Set Workers and Durable Objects spending limits in the dashboard.
 

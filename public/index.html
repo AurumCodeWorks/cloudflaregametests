@@ -73,6 +73,8 @@
     <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12h-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
     <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
     <symbol id="i-sound-off" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m16 9.5 5 5M21 9.5l-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1.2 1.2M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1.2-1.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="1.6"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-chip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21M5.6 5.6l2.3 2.3M16.1 16.1l2.3 2.3M18.4 5.6l-2.3 2.3M7.9 16.1l-2.3 2.3" stroke="currentColor" stroke-width="1.6"/></symbol>
   </svg>
@@ -93,6 +95,7 @@
       <div class="wallet" data-testid="wallet" hidden>
         <svg class="ico"><use href="#i-chip" /></svg><span class="label">Balance</span><strong id="wallet-balance">0</strong>
       </div>
+      <button id="invite-btn" class="quiet-btn" data-testid="invite" hidden><svg class="ico"><use href="#i-link" /></svg><span>Invite</span></button>
       <button id="leave-btn" class="quiet-btn" data-testid="leave" hidden><svg class="ico"><use href="#i-exit" /></svg><span>Leave</span></button>
     </nav>
   </header>
@@ -137,6 +140,14 @@
         </div>
         <button id="play-btn" class="btn btn-gold" data-testid="play">Take a seat</button>
       </div>
+      <div class="lobby-actions">
+        <button id="private-btn" class="btn btn-quiet btn-small" data-testid="private">Open a private table</button>
+        <span class="fine-inline">Play with friends: you get a link to share.</span>
+      </div>
+      <section class="tables" aria-labelledby="tables-h">
+        <h2 id="tables-h" class="tables-h">Tables in play <span id="tables-count"></span></h2>
+        <div id="tables" class="tables-list" data-testid="tables"><p class="tables-empty">Loading tables…</p></div>
+      </section>
       <div class="daily" id="daily" hidden>
         <span>Running low? Claim 1,000 free chips once a day.</span>
         <button id="daily-btn" class="btn btn-ivory btn-small" data-testid="daily">Claim daily chips</button>
@@ -169,6 +180,17 @@
       </div>
     </div>
 
+    <div class="watch-bar" id="watch-bar" data-testid="watch-bar" hidden>
+      <svg class="ico" aria-hidden="true"><use href="#i-eye" /></svg>
+      <span><strong>Watching <span id="watch-name"></span>.</strong> You see what anyone not seated sees: no hidden cards.</span>
+      <button class="btn btn-gold btn-small" id="watch-join" data-testid="watch-join">Take a seat</button>
+      <button class="btn btn-quiet btn-small" id="watch-leave" data-testid="watch-leave">Back to lobby</button>
+    </div>
+    <div class="conn-banner" id="conn-banner" data-testid="conn-banner" role="status" hidden>
+      <span id="conn-text">Connection lost. Reconnecting…</span>
+      <button class="btn btn-ivory btn-small" id="conn-retry" type="button">Try now</button>
+      <button class="btn btn-quiet btn-small" id="conn-lobby" type="button">Back to lobby</button>
+    </div>
     <div class="console" id="actions" data-testid="actions">
       <div class="console-top">
         <div class="action-status" id="action-status"></div>

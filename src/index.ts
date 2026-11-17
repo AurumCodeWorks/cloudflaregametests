@@ -1,5 +1,5 @@
 // Worker entry: the website, a small JSON API, and the WebSocket door into each table.
-import { Lobby } from "./lobby.ts";
+import { Lobby, TABLE_ID } from "./lobby.ts";
 import { Table } from "./table.ts";
 import type { Env } from "./env.ts";
 import { balance, topUp, transfer } from "./ledger.ts";
@@ -66,9 +66,13 @@ export default {
       if (!user) return json({ error: "Please sign in again." }, 401);
 
       const unlimited = env.UNLIMITED === "1";
+      const lobby = () => env.LOBBY.get(env.LOBBY.idFromName("lobby"));
       if (path === "/api/me") {
-        const bal = unlimited ? await topUp(env.DB, `user:${user.id}`) : await balance(env.DB, `user:${user.id}`);
-        return json({ userId: user.id, name: user.name, balance: bal, unlimited });
+        const [bal, table] = await Promise.all([
+          unlimited ? topUp(env.DB, `user:${user.id}`) : balance(env.DB, `user:${user.id}`),
+          lobby().whereIs(user.id), // the table you're seated at (or held for you), so you can get straight back to it
+        ]);
+        return json({ userId: user.id, name: user.name, balance: bal, unlimited, table });
       }
 
       if (path === "/api/daily" && req.method === "POST") {
@@ -95,21 +99,42 @@ export default {
       }
 
       if (path === "/api/play" && req.method === "POST") {
-        const tableId = await env.LOBBY.get(env.LOBBY.idFromName("lobby")).assign();
-        return json({ tableId });
+        // Already seated somewhere (or a seat is being held for you)? Back to that table, never a second seat.
+        // Otherwise: a table picked from the list or a private link, a new private table, or quick seat.
+        const body = (await req.json().catch(() => ({}))) as { tableId?: unknown; private?: unknown };
+        const current = await lobby().whereIs(user.id);
+        if (current) return json({ tableId: current, rejoined: true });
+        if (typeof body.tableId === "string" && TABLE_ID.test(body.tableId)) return json({ tableId: body.tableId });
+        if (body.private === true) return json({ tableId: await lobby().createPrivate(), private: true });
+        return json({ tableId: await lobby().assign() });
       }
 
-      const ws = path.match(/^\/ws\/table\/(t-[0-9a-f]{8})$/);
+      // The live table list (one hibernating WebSocket per viewer; updates are pushed)
+      if (path === "/ws/lobby") {
+        if (req.headers.get("upgrade") !== "websocket") return json({ error: "Expected a WebSocket" }, 426);
+        return lobby().fetch(req);
+      }
+
+      // Test hook (AUDIT=1 only): make a table crash right after its next ledger transfer of a given kind
+      const crash = path.match(/^\/api\/debug\/crash\/(t-[0-9a-f]{8}|p-[0-9a-f]{16})$/);
+      if (crash && env.AUDIT === "1" && req.method === "POST") {
+        const { kind } = (await req.json().catch(() => ({}))) as { kind?: string };
+        await env.TABLE.get(env.TABLE.idFromName(crash[1])).testCrashAfter(String(kind ?? "buyin"));
+        return json({ ok: true });
+      }
+
+      const ws = path.match(/^\/ws\/table\/(t-[0-9a-f]{8}|p-[0-9a-f]{16})$/);
       if (ws) {
         if (req.headers.get("upgrade") !== "websocket") return json({ error: "Expected a WebSocket" }, 426);
         const headers = new Headers(req.headers);
         headers.set("X-User-Id", user.id); // set by us, never trusted from the client
         headers.set("X-User-Name", user.name);
         headers.set("X-Table-Id", ws[1]);
+        headers.set("X-Watch", url.searchParams.get("watch") === "1" ? "1" : "0"); // never trusted from the client's own headers
         return env.TABLE.get(env.TABLE.idFromName(ws[1])).fetch(new Request(req, { headers }));
       }
 
-      const hand = path.match(/^\/api\/hands\/(t-[0-9a-f]{8})\/(\d{1,7})$/);
+      const hand = path.match(/^\/api\/hands\/(t-[0-9a-f]{8}|p-[0-9a-f]{16})\/(\d{1,7})$/);
       if (hand) {
         const obj = await env.HANDS.get(`hands/${hand[1]}/${hand[2].padStart(7, "0")}.json`);
         if (!obj) return json({ error: "Not found" }, 404);

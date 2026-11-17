@@ -12,7 +12,8 @@ export interface Env {
   NEXT_HAND_MS?: string; // pause between hands, long enough for the win animations (default 5500)
   RAKE_PERCENT?: string; // house cut on tables; "0" for free play
   STARTING_CHIPS?: string; // play chips for a new account (default 1000)
-  AUDIT?: string; // "1" enables GET /api/audit (dev/test only)
+  AUDIT?: string; // "1" enables GET /api/audit and the crash test hook (dev/test only)
+  AWAY_SECONDS?: string; // how long a disconnected player's seat is held (default 180)
   PAYMENTS_MODE?: string; // "test" = shop purchases are simulated, no money taken
   UNLIMITED?: string; // "1" = demo: play chips never run out (auto top-up and re-buy) and every shop item unlocks free
 }

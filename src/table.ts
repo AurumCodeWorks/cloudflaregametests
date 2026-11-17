@@ -9,13 +9,15 @@ import type { Env } from "./env.ts";
 import { commitDeck, freshDeck, randomHex, secureShuffle } from "./cards.ts";
 import type { RevealItem } from "./cards.ts";
 import {
-  act, BIG_BLIND, BUY_IN, DEFAULT_RAKE, historyOf, legalActions, newSeat, newTable, potTotal, revealFor, SEAT_COUNT, startHand, timeoutAction,
+  act, BIG_BLIND, BUY_IN, DEFAULT_RAKE, SMALL_BLIND, historyOf, legalActions, newSeat, newTable, potTotal, revealFor, SEAT_COUNT, startHand, timeoutAction,
 } from "./holdem.ts";
 import type { Action, ActionRecord, RakeRule, TableState } from "./holdem.ts";
 import { BOT_NAMES, botView, decide } from "./bot.ts";
 import { permutationFrom } from "../public/fair.js";
 import { transfer } from "./ledger.ts";
+import type { TransferResult } from "./ledger.ts";
 import { tableCosmetics } from "./shop.ts";
+import type { TableSummary } from "./lobby.ts";
 
 interface Waiting { userId: string; name: string }
 interface Persisted {
@@ -32,14 +34,23 @@ interface Persisted {
   botPlan?: { hand: number; step: number; seat: number; action: Action } | null; // the bot's move, decided when its turn began
   // The next hand's deck, committed before any player seed arrives; seeds are collected until the deal
   pending?: { serverDeck: string[]; salts: string[]; leaves: string[]; commit: string; seeds: Record<string, string> } | null;
+  moves?: Move[]; // chip movements saved before their ledger transfer, so a restart can finish them
+  lastPot?: number; // the last finished hand's pot, for the lobby list
 }
+/**
+ * A chip movement between a seat and the ledger ("in": buy-in, top-up, re-buy; "out": cash-out). It is saved
+ * with the table before the ledger transfer runs, and applied to the seat after. If the table restarts in
+ * between, recover() retries the same transfer: its ref makes a retry safe (it can never apply twice).
+ */
+interface Move { seat: number; userId: string; ref: string; from: string; to: string; amount: number; kind: string; dir: "in" | "out"; fresh?: boolean }
 const BOT_COSMETICS = { deck: "modern", celebration: "glow" };
-interface Attachment { userId: string; name: string; windowStart: number; count: number }
+interface Attachment { userId: string; name: string; windowStart: number; count: number; watch?: boolean }
+const MAX_WATCHERS = 20;
+const LOBBY_REPORT_MS = 5000; // pot/street updates to the lobby list at most this often (seat changes go at once)
 
 const ACTIONS = new Set(["fold", "check", "call", "raise", "allin"]);
 const MAX_MSGS_PER_SECOND = 20;
-const DISCONNECTED_TURN_MS = 5000;
-const READY_DEAL_MS = 700; // when everyone presses Continue, deal after this short beat // a player whose connection dropped gets a short grace period, not the full timer
+const READY_DEAL_MS = 700; // when everyone presses Continue, deal after this short beat
 const SUIT: Record<string, string> = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const cardText = (c: string) => (c[0] === "T" ? "10" : c[0]) + SUIT[c[1]];
 const withArticle = (hand: string) => (/^[AEIOU]/i.test(hand) ? `an ${hand.toLowerCase()}` : `a ${hand.toLowerCase()}`);
@@ -47,9 +58,14 @@ const withArticle = (hand: string) => (/^[AEIOU]/i.test(hand) ? `an ${hand.toLow
 export class Table extends DurableObject<Env> {
   private p: Persisted | null = null;
   private chain: Promise<unknown> = Promise.resolve();
+  private recovered = false;
+  private crashAfter: string | null = null; // test hook, see testCrashAfter()
+  private lastReport = { at: 0, key: "" }; // lobby-report throttle
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    // Heartbeat: answered by the platform without waking the table, so it costs nothing
+    ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
     ctx.blockConcurrencyWhile(async () => {
       this.p = (await ctx.storage.get<Persisted>("p")) ?? null;
     });
@@ -59,6 +75,8 @@ export class Table extends DurableObject<Env> {
   private get turnMs() { return Number(this.env.TURN_SECONDS ?? 20) * 1000; }
   private get nextHandMs() { return Number(this.env.NEXT_HAND_MS ?? 5500); }
   private get unlimited() { return this.env.UNLIMITED === "1"; }
+  /** How long a disconnected player's seat (and chips) are held for them to come back. */
+  private get awayMs() { return Number(this.env.AWAY_SECONDS ?? 180) * 1000; }
   /** Bots "think" longer over close calls and act quickly on obvious ones. */
   private botDelay(difficulty: number) { return Number(this.env.BOT_DELAY_MS ?? 1100) * (0.55 + 0.9 * difficulty) * (0.85 + Math.random() * 0.3); }
   /** Decide a bot's move once, when its turn begins. The bot sees only what a person in its seat could. */
@@ -76,7 +94,8 @@ export class Table extends DurableObject<Env> {
 
   /** Run state-changing work one at a time, even across awaits on D1/R2 (which open the input gate). */
   private run<T>(fn: () => Promise<T>): Promise<T> {
-    const next = this.chain.then(fn, fn);
+    const step = () => this.recover().then(fn); // first, finish anything a restart interrupted
+    const next = this.chain.then(step, step);
     this.chain = next.catch(() => {});
     return next;
   }
@@ -88,8 +107,21 @@ export class Table extends DurableObject<Env> {
     const name = req.headers.get("X-User-Name");
     const tableId = req.headers.get("X-Table-Id");
     if (!userId || !name || !tableId) return new Response("Missing identity", { status: 400 });
+    const watch = req.headers.get("X-Watch") === "1";
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
+    if (watch) {
+      // Watching: the public view only (no hidden cards), never queued for a seat, limited per table
+      if (this.ctx.getWebSockets("watch").length >= MAX_WATCHERS) return new Response("Too many watchers", { status: 429 });
+      this.ctx.acceptWebSocket(server, [userId, "watch"]);
+      server.serializeAttachment({ userId, name, windowStart: Date.now(), count: 0, watch: true } satisfies Attachment);
+      await this.run(async () => {
+        if (!this.p) { this.send(server, { type: "error", message: "That table isn't running right now." }); server.close(4004, "no table"); return; }
+        this.send(server, this.view(userId));
+        this.ctx.waitUntil(this.reportLobby(true));
+      });
+      return new Response(null, { status: 101, webSocket: client });
+    }
     this.ctx.acceptWebSocket(server, [userId]);
     server.serializeAttachment({ userId, name, windowStart: Date.now(), count: 0 } satisfies Attachment);
     await this.run(() => this.onJoin(server, userId, name, tableId));
@@ -113,15 +145,19 @@ export class Table extends DurableObject<Env> {
       this.log(`${name} joined the table`);
     } else if (seat >= 0) {
       const s = p.t.seats[seat]!;
+      if (s.awaySince) this.log(`${s.name} is back`);
       s.leaving = false;
       s.timeouts = 0;
+      s.awaySince = null;
+      s.sittingOut = false; // dealt in again from the next hand
       const h = p.t.hand;
       if (h && !h.result && h.toAct === seat) { // reconnected on your turn: the full timer again
         p.turnDeadline = Date.now() + this.turnMs;
         await this.schedule("act", p.turnDeadline);
       }
     }
-    if ((!p.t.hand || p.t.hand.result) && p.next?.kind !== "hand") await this.schedule("hand", Date.now() + 600);
+    const soon = Date.now() + 600;
+    if ((!p.t.hand || p.t.hand.result) && (p.next?.kind !== "hand" || p.next.at > soon)) await this.schedule("hand", soon);
     await this.persist();
     this.broadcast();
     await this.reportLobby();
@@ -137,6 +173,7 @@ export class Table extends DurableObject<Env> {
     if (typeof msg !== "string" || msg.length > 300) { ws.close(1009, "Message too large"); return; }
     let m: { type?: string; action?: string; to?: unknown; commit?: unknown; seed?: unknown };
     try { m = JSON.parse(msg); } catch { this.send(ws, { type: "error", message: "Bad message" }); return; }
+    if (att.watch) return; // watchers only listen
     await this.run(async () => {
       if (!this.p) return;
       if (m.type === "action") await this.onAction(ws, att.userId, m);
@@ -148,17 +185,28 @@ export class Table extends DurableObject<Env> {
     });
   }
 
-  async webSocketClose(ws: WebSocket) { await this.onDisconnect(ws); }
+  async webSocketClose(ws: WebSocket, code: number) {
+    // Answer the close so the browser learns at once that it's disconnected (and starts reconnecting)
+    try { ws.close(code >= 3000 && code < 5000 ? code : 1000, "closed"); } catch { /* already closed */ }
+    await this.onDisconnect(ws);
+  }
   async webSocketError(ws: WebSocket) { await this.onDisconnect(ws); }
 
   private async onDisconnect(ws: WebSocket) {
     const att = ws.deserializeAttachment() as Attachment | null;
     if (!att) return;
+    if (att.watch) { this.ctx.waitUntil(this.reportLobby(true)); return; }
     await this.run(async () => {
       const p = this.p;
       if (!p || this.connected(att.userId, ws)) return;
       p.waiting = p.waiting.filter((w) => w.userId !== att.userId);
-      // A seated player who disconnects keeps their seat until the hand ends; their turn timer handles it.
+      // A seated player who disconnects keeps their seat and chips for a grace period. They finish the
+      // current hand with the normal turn timer, then sit out (no blinds, no auto-folds) until they're back.
+      const seat = this.seatOf(att.userId);
+      if (seat >= 0 && !p.t.seats[seat]!.awaySince) {
+        p.t.seats[seat]!.awaySince = Date.now();
+        this.log(`${att.name} lost connection · seat held for ${Math.round(this.awayMs / 60000)} min`);
+      }
       if ((!p.t.hand || p.t.hand.result) && p.next?.kind !== "hand") await this.schedule("hand", Date.now() + 500);
       await this.persist();
       this.broadcast();
@@ -244,11 +292,11 @@ export class Table extends DurableObject<Env> {
     const amount = BUY_IN - s.stack;
     if (amount <= 0) return this.send(ws, { type: "error", message: `Your stack is already at the ${BUY_IN} maximum` });
     const ref = `topup:${p.tableId}:${userId}:${randomHex(6)}`;
-    const r = this.unlimited
-      ? await transfer(this.env.DB, "mint", `table:${p.tableId}`, amount, ref, "demo-topup")
-      : await transfer(this.env.DB, `user:${userId}`, `table:${p.tableId}`, amount, ref, "topup");
+    const [r] = await this.moveChips([{
+      seat, userId, ref, from: this.unlimited ? "mint" : `user:${userId}`, to: `table:${p.tableId}`, amount,
+      kind: this.unlimited ? "demo-topup" : "topup", dir: "in",
+    }]);
     if (r === "insufficient") return this.send(ws, { type: "error", message: `You need ${amount} chips in your balance to top up` });
-    s.stack += amount;
     this.log(`${s.name} tops up to ${BUY_IN}`);
     this.send(ws, { type: "toppedup", amount });
     await this.persist();
@@ -303,7 +351,7 @@ export class Table extends DurableObject<Env> {
         } else if (Date.now() >= (p.turnDeadline ?? 0) - 50) {
           this.apply(() => { timeoutAction(p.t, seat); });
           this.log(`${s.name} ran out of time`);
-          if (s.timeouts >= 2 || !this.connected(s.userId)) s.leaving = true;
+          if (s.timeouts >= 2 && this.connected(s.userId)) s.leaving = true; // idle while connected: stand up next hand
         } else {
           await this.schedule("act", p.turnDeadline!);
           await this.persist();
@@ -335,7 +383,7 @@ export class Table extends DurableObject<Env> {
         const planned = plan && plan.hand === h.no && plan.step === h.actions.length && plan.seat === h.toAct && p.next?.kind === "act";
         if (!planned) await this.schedule("act", now + this.botDelay(this.planBot(h.toAct).difficulty));
       } else {
-        p.turnDeadline = now + (this.connected(s.userId) ? this.turnMs : Math.min(this.turnMs, DISCONNECTED_TURN_MS));
+        p.turnDeadline = now + this.turnMs; // the full time, connected or not: a dropped player usually reconnects within seconds
         await this.schedule("act", p.turnDeadline);
       }
     } else if (p.next?.kind !== "hand") {
@@ -344,6 +392,7 @@ export class Table extends DurableObject<Env> {
     }
     await this.persist();
     this.broadcast();
+    this.ctx.waitUntil(this.reportLobby()); // throttled: the lobby list's pot and stage
   }
 
   private async startNextHand() {
@@ -353,23 +402,27 @@ export class Table extends DurableObject<Env> {
     p.turnDeadline = null;
     p.ready = [];
 
-    // 1. Stand up players who are leaving, disconnected or out of chips; bots that are nearly broke
+    // 1. Who plays this hand. Players who left, or who've been disconnected longer than the grace
+    //    period, stand up with their chips paid back to their balance; a disconnected player inside the
+    //    grace period keeps the seat but sits out; bots that are nearly broke make way for fresh ones.
+    const now = Date.now();
     for (let i = 0; i < SEAT_COUNT; i++) {
       const s = t.seats[i];
       if (!s) continue;
       if (s.cashedOut) { t.seats[i] = null; continue; } // left during the last hand and already paid out
-      const here = !s.leaving && this.connected(s.userId);
-      if (this.unlimited && !s.isBot && s.stack === 0 && here) {
-        // Demo: re-buy (minted for the demo) instead of being sent back to the lobby
-        const r = await transfer(this.env.DB, "mint", `table:${id}`, BUY_IN, `rebuy:${id}:${s.userId}:${randomHex(6)}`, "demo-buyin");
-        if (r === "ok") {
-          s.stack = BUY_IN;
-          this.log(`${s.name} re-buys for ${BUY_IN}`);
-          continue;
+      if (s.isBot) { if (s.stack < BIG_BLIND * 2) await this.standUp(i, "rebuy"); continue; }
+      const online = this.connected(s.userId);
+      if (online) { s.awaySince = null; s.sittingOut = false; }
+      else { s.awaySince ??= now; s.sittingOut = true; }
+      if (s.leaving || (s.awaySince && now - s.awaySince >= this.awayMs)) { await this.standUp(i, "left"); continue; }
+      if (s.stack === 0 && online) {
+        if (this.unlimited) {
+          // Demo: re-buy (minted for the demo) instead of being sent back to the lobby
+          const [r] = await this.moveChips([{ seat: i, userId: s.userId, ref: `rebuy:${id}:${s.userId}:${randomHex(6)}`, from: "mint", to: `table:${id}`, amount: BUY_IN, kind: "demo-buyin", dir: "in" }]);
+          if (r !== "insufficient") { this.log(`${s.name} re-buys for ${BUY_IN}`); continue; }
         }
+        await this.standUp(i, "busted");
       }
-      if (!s.isBot && (!here || s.stack === 0)) await this.standUp(i, here ? "busted" : "left");
-      else if (s.isBot && s.stack < BIG_BLIND * 2) await this.standUp(i, "rebuy");
     }
 
     // 2. Seat waiting players (a human always takes a bot's seat)
@@ -383,10 +436,13 @@ export class Table extends DurableObject<Env> {
       }
       if (i < 0) { p.waiting.push(w); continue; }
       const ref = `buyin:${id}:${w.userId}:${randomHex(6)}`;
-      // The demo mints each buy-in, so balances never run down; otherwise it comes out of the player's balance
-      const r = this.unlimited
-        ? await transfer(this.env.DB, "mint", `table:${id}`, BUY_IN, ref, "demo-buyin")
-        : await transfer(this.env.DB, `user:${w.userId}`, `table:${id}`, BUY_IN, ref, "buyin");
+      // The seat is taken (with no chips yet) before the buy-in moves, so a restart can't strand the chips.
+      // The demo mints each buy-in, so balances never run down; otherwise it comes out of the player's balance.
+      t.seats[i] = newSeat(w.userId, w.name, false, 0, ref);
+      const [r] = await this.moveChips([{
+        seat: i, userId: w.userId, ref, from: this.unlimited ? "mint" : `user:${w.userId}`, to: `table:${id}`, amount: BUY_IN,
+        kind: this.unlimited ? "demo-buyin" : "buyin", dir: "in", fresh: true,
+      }]);
       if (r === "insufficient") {
         for (const ws of this.sockets(w.userId)) {
           this.send(ws, { type: "error", message: `You need ${BUY_IN} chips to sit down. Claim your daily chips in the lobby.` });
@@ -394,16 +450,18 @@ export class Table extends DurableObject<Env> {
         }
         continue;
       }
-      t.seats[i] = newSeat(w.userId, w.name, false, BUY_IN, ref);
       this.log(`${w.name} sits down with ${BUY_IN}`);
     }
 
-    // 3. No people left: bots cash out and the table goes quiet (no alarms, no cost)
-    if (!t.seats.some((s) => s && !s.isBot)) {
+    // 3. Nobody here to play: bots cash out and the table goes quiet. If seats are being held for
+    //    disconnected players, wake up once when the earliest hold runs out; otherwise no alarm, no cost.
+    if (!t.seats.some((s) => s && !s.isBot && !s.sittingOut)) {
       await Promise.all(t.seats.map((s, i) => (s?.isBot ? this.standUp(i, "idle") : null)));
       t.hand = null;
       p.next = null;
-      await this.ctx.storage.deleteAlarm();
+      const held = t.seats.filter((s) => s && !s.isBot && s.awaySince).map((s) => s!.awaySince! + this.awayMs);
+      if (held.length) await this.schedule("hand", Math.min(...held) + 500);
+      else await this.ctx.storage.deleteAlarm();
       await this.persist();
       this.broadcast();
       await this.reportLobby();
@@ -411,16 +469,16 @@ export class Table extends DurableObject<Env> {
     }
 
     // 4. Bots fill any empty seats (always labelled as bots)
-    const buyIns: Promise<unknown>[] = [];
+    const botMoves: Move[] = [];
     for (let i = 0; i < SEAT_COUNT; i++) {
       if (t.seats[i]) continue;
       p.botSeq++;
       const botId = `bot:${id}:${p.botSeq}`;
       const ref = `buyin:${id}:${botId}`;
-      buyIns.push(transfer(this.env.DB, "bots", `table:${id}`, BUY_IN, ref, "bot-buyin"));
-      t.seats[i] = newSeat(botId, BOT_NAMES[p.botSeq % BOT_NAMES.length], true, BUY_IN, ref);
+      t.seats[i] = newSeat(botId, BOT_NAMES[p.botSeq % BOT_NAMES.length], true, 0, ref);
+      botMoves.push({ seat: i, userId: botId, ref, from: "bots", to: `table:${id}`, amount: BUY_IN, kind: "bot-buyin", dir: "in", fresh: true });
     }
-    await Promise.all(buyIns);
+    if (botMoves.length) await this.moveChips(botMoves);
 
     // 5. Deal from the deck the house committed to, reordered by the players' seeds
     if (!p.pending) await this.prepareDeck();
@@ -430,6 +488,10 @@ export class Table extends DurableObject<Env> {
     const deck = perm.map((j) => pend.serverDeck[j]);
     p.leaves = pend.leaves;
     if (!startHand(t, deck, pend.salts, pend.commit, { serverDeck: pend.serverDeck, seeds })) {
+      // Fewer than two players can be dealt in: seats held for disconnected players can't take bots. Wake up
+      // when the first hold runs out (bots can then sit), or shortly if nothing is held, and try again.
+      const held = t.seats.filter((x) => x && !x.isBot && x.awaySince).map((x) => x!.awaySince! + this.awayMs);
+      await this.schedule("hand", held.length ? Math.min(...held) + 500 : Date.now() + 5000);
       await this.persist();
       this.broadcast();
       return;
@@ -448,18 +510,11 @@ export class Table extends DurableObject<Env> {
     if (!s) return;
     const amount = s.stack;
     if (amount > 0) {
+      // Paid back to the player's balance (the seat clears when the move settles, see settle())
       const to = s.isBot ? "bots" : `user:${s.userId}`;
-      const r = await transfer(this.env.DB, `table:${p.tableId}`, to, amount, `cashout:${s.sitRef}`, "cashout");
-      if (r === "insufficient") throw new Error(`Ledger mismatch cashing out ${s.userId}`);
-    }
-    const h = p.t.hand;
-    if (h && !h.result && s.inHand) {
-      // Mid-hand: pay out the stack now but keep the seat until the hand ends, so the chips this
-      // player already put in stay in the pot (removing the seat would drop them from the pots)
-      s.stack = 0;
-      s.cashedOut = true;
+      await this.moveChips([{ seat: i, userId: s.userId, ref: `cashout:${s.sitRef}`, from: `table:${p.tableId}`, to, amount, kind: "cashout", dir: "out" }]);
     } else {
-      p.t.seats[i] = null;
+      this.clearSeat(i);
     }
     if (!s.isBot) {
       this.log(reason === "busted" ? `${s.name} is out of chips` : `${s.name} left with ${amount.toLocaleString("en-GB")}`);
@@ -493,7 +548,62 @@ export class Table extends DurableObject<Env> {
         .run(),
     ]);
     for (const w of writes) if (w.status === "rejected") console.error("finalizeHand", w.reason);
+    p.lastPot = potTotal(t);
     h.finalized = true;
+  }
+
+  // ------------------------------------------------------------------ chip movements (crash-safe)
+  /** Save the moves with the table, then run their ledger transfers, then apply them to the seats. */
+  private async moveChips(list: Move[]): Promise<TransferResult[]> {
+    const p = this.p!;
+    p.moves = [...(p.moves ?? []), ...list];
+    await this.persist(); // the intent is saved before any chips move
+    const results = await Promise.all(list.map((m) => transfer(this.env.DB, m.from, m.to, m.amount, m.ref, m.kind)));
+    if (this.crashAfter && list.some((m) => m.kind === this.crashAfter)) {
+      this.crashAfter = null;
+      this.ctx.abort("test: crash between a ledger transfer and saving the table");
+    }
+    list.forEach((m, i) => this.settle(m, results[i]));
+    return results;
+  }
+  /** Apply a finished transfer to its seat. "duplicate" means it had already gone through: apply it the same way. */
+  private settle(m: Move, r: TransferResult) {
+    const p = this.p!;
+    p.moves = (p.moves ?? []).filter((x) => x.ref !== m.ref);
+    const s = p.t.seats[m.seat];
+    if (!s || s.userId !== m.userId) return;
+    if (m.dir === "in") {
+      if (r === "insufficient") { if (m.fresh) p.t.seats[m.seat] = null; return; }
+      s.stack += m.amount;
+      return;
+    }
+    if (r === "insufficient") console.error(`ledger mismatch cashing out ${m.userId}`);
+    s.stack = 0;
+    this.clearSeat(m.seat);
+  }
+  /** Free a seat. Mid-hand the seat stays (cashed out) until the hand ends, so chips already in the pot stay there. */
+  private clearSeat(i: number) {
+    const p = this.p!;
+    const s = p.t.seats[i];
+    const h = p.t.hand;
+    if (s && h && !h.result && s.inHand) { s.stack = 0; s.cashedOut = true; }
+    else p.t.seats[i] = null;
+  }
+  /** After a restart: finish any chip movement that was saved but not applied, before anything else happens. */
+  private async recover() {
+    if (this.recovered) return;
+    const moves = this.p?.moves ?? [];
+    if (moves.length) {
+      const results = await Promise.all(moves.map((m) => transfer(this.env.DB, m.from, m.to, m.amount, m.ref, m.kind)));
+      moves.forEach((m, i) => this.settle(m, results[i]));
+      this.log(`Restart recovery: finished ${moves.length} chip movement${moves.length === 1 ? "" : "s"}; nothing was lost`);
+      await this.persist();
+    }
+    this.recovered = true;
+  }
+  /** Test hook, honoured only when AUDIT=1: crash right after the next ledger transfer of this kind. */
+  async testCrashAfter(kind: string) {
+    if (this.env.AUDIT === "1") this.crashAfter = kind;
   }
 
   // ------------------------------------------------------------------ what each player sees
@@ -506,6 +616,7 @@ export class Table extends DurableObject<Env> {
       type: "state",
       tableId: p.tableId,
       turnSeconds: this.turnMs / 1000,
+      seatHoldSeconds: this.awayMs / 1000,
       bigBlind: BIG_BLIND,
       you: {
         seat: you, waiting: p.waiting.some((w) => w.userId === userId), ready: !!p.ready?.includes(userId),
@@ -519,6 +630,7 @@ export class Table extends DurableObject<Env> {
         s && {
           name: s.name, isBot: s.isBot, you: i === you, stack: s.stack, bet: s.bet, total: s.total,
           folded: s.folded, allIn: s.allIn, inHand: s.inHand, connected: s.isBot || this.connected(s.userId),
+          away: !s.isBot && !!s.awaySince, heldForMs: s.awaySince ? Math.max(0, s.awaySince + this.awayMs - Date.now()) : null,
           cosmetics: s.isBot ? BOT_COSMETICS : (p.cosmetics?.[s.userId] ?? BOT_COSMETICS),
           hole: this.visibleHole(i, you),
         },
@@ -589,9 +701,30 @@ export class Table extends DurableObject<Env> {
     await this.ctx.storage.setAlarm(at);
   }
   private async persist() { if (this.p) await this.ctx.storage.put("p", this.p); }
-  private async reportLobby() {
+  /** What the lobby list shows for this table. */
+  private summary(): TableSummary {
+    const p = this.p!, t = p.t, h = t.hand;
+    const people = t.seats.filter((s) => s && !s.isBot && !s.cashedOut);
+    const live = !!h && !h.result;
+    return {
+      id: p.tableId, people: people.length, away: people.filter((s) => s!.awaySince).length, bots: t.seats.filter((s) => s?.isBot).length,
+      waiting: p.waiting.length, watchers: this.ctx.getWebSockets("watch").length, seats: SEAT_COUNT, blinds: [SMALL_BLIND, BIG_BLIND], buyIn: BUY_IN,
+      pot: live ? potTotal(t) : 0, street: live ? h!.street : null, handNo: h?.no ?? 0, lastPot: p.lastPot ?? 0, updatedAt: Date.now(),
+    };
+  }
+  /** Tell the lobby who's here (at once when that changes) and the table's pot and stage (at most every few seconds). */
+  private async reportLobby(force = false) {
     try {
-      await this.env.LOBBY.get(this.env.LOBBY.idFromName("lobby")).report(this.p!.tableId, this.humans());
+      const p = this.p;
+      if (!p) return;
+      const members = [...p.t.seats.filter((s) => s && !s.isBot && !s.cashedOut).map((s) => s!.userId), ...p.waiting.map((w) => w.userId)];
+      const summary = this.summary();
+      // Who's here and in what state goes at once; the pot and stage at most every few seconds
+      const key = [members.join(","), summary.people, summary.waiting, summary.away, summary.bots, summary.watchers].join("|");
+      const now = Date.now();
+      if (!force && key === this.lastReport.key && now - this.lastReport.at < LOBBY_REPORT_MS) return;
+      this.lastReport = { at: now, key };
+      await this.env.LOBBY.get(this.env.LOBBY.idFromName("lobby")).report(p.tableId, this.humans(), members, summary);
     } catch (e) {
       console.error("lobby report", e);
     }

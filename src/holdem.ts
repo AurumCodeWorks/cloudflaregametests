@@ -43,6 +43,8 @@ export interface Seat {
   leaving: boolean;
   timeouts: number;
   cashedOut?: boolean; // left mid-hand: stack already paid out; the seat stays until the hand ends so its chips stay in the pot
+  sittingOut?: boolean; // keeps the seat but isn't dealt in (e.g. disconnected and expected back)
+  awaySince?: number | null; // when the player's connection dropped (the seat is held for a grace period)
 }
 
 export interface ActionRecord {
@@ -161,7 +163,7 @@ export function startHand(
   t: TableState, deck: string[], salts: string[], commit: string,
   seeded?: { serverDeck: string[]; seeds: string[] },
 ): boolean {
-  const eligible = (i: number) => !!t.seats[i] && t.seats[i]!.stack > 0;
+  const eligible = (i: number) => !!t.seats[i] && t.seats[i]!.stack > 0 && !t.seats[i]!.sittingOut;
   const count = t.seats.filter((_, i) => eligible(i)).length;
   if (count < 2) return false;
 
@@ -190,7 +192,8 @@ export function startHand(
   const h: Hand = {
     no: t.handNo, prevButton, button, sbSeat, bbSeat, deck, serverDeck: seeded?.serverDeck, seeds: seeded?.seeds ?? [], ptr: 0, board: [], street: "preflop",
     toAct: -1, currentBet: BIG_BLIND, minRaise: BIG_BLIND, actions: [], commit, salts,
-    startSeats: t.seats.map((s) => (s ? { userId: s.userId, name: s.name, isBot: s.isBot, stack: s.stack } : null)),
+    // Seats sitting out aren't part of the hand (and replays must not deal them in either)
+    startSeats: t.seats.map((s) => (s && !s.sittingOut ? { userId: s.userId, name: s.name, isBot: s.isBot, stack: s.stack } : null)),
     result: null, finalized: false,
   };
   t.hand = h;
