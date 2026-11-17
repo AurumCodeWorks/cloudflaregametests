@@ -125,6 +125,24 @@ export default {
       return json({ error: "Not found" }, 404);
     }
 
+    // -------------------------------------------------------------- game audio (R2)
+    // Versioned paths never change, so browsers keep them for good; ranges let <audio> stream the music
+    const audio = path.match(/^\/audio\/(v\d{1,3})\/([a-z0-9-]{1,40})\.mp3$/);
+    if (audio && (req.method === "GET" || req.method === "HEAD")) {
+      const key = `audio/${audio[1]}/${audio[2]}.mp3`;
+      const obj = req.method === "HEAD" ? await env.HANDS.head(key) : await env.HANDS.get(key, { range: req.headers });
+      if (!obj) return new Response("Not found", { status: 404 });
+      const headers = new Headers({ "content-type": "audio/mpeg", "cache-control": "public, max-age=31536000, immutable", "accept-ranges": "bytes", etag: obj.httpEtag, ...SECURITY_HEADERS });
+      // R2 reports the range it served as {offset, length}, {offset} or {suffix}; turn it into first byte + length
+      const r = (obj as R2Object).range as { offset?: number; length?: number; suffix?: number } | undefined;
+      const start = r ? (r.suffix !== undefined ? obj.size - r.suffix : r.offset ?? 0) : 0;
+      const length = r ? (r.suffix ?? r.length ?? obj.size - start) : obj.size;
+      const partial = req.headers.has("range") && !!r && length < obj.size;
+      if (partial) headers.set("content-range", `bytes ${start}-${start + length - 1}/${obj.size}`);
+      headers.set("content-length", String(length));
+      return new Response("body" in obj ? (obj as R2ObjectBody).body : null, { status: partial ? 206 : 200, headers });
+    }
+
     // -------------------------------------------------------------- website
     const file = FILES[path === "/" ? "/index.html" : path];
     if (!file) return new Response("Not found", { status: 404 });

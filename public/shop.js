@@ -1,5 +1,5 @@
 // Cosmetics shop: browse, preview, buy and equip. The server owns prices and ownership.
-export function createShop({ api, toast, cardEl, FX, onEquip }) {
+export function createShop({ api, toast, cardEl, FX, sound, onEquip }) {
   const $ = (id) => document.getElementById(id);
   let state = null;
   let tab = "deck";
@@ -48,7 +48,7 @@ export function createShop({ api, toast, cardEl, FX, onEquip }) {
       stage.className = "cele-stage";
       const plate = Object.assign(document.createElement("div"), { className: "mini-plate", textContent: "You win 390" });
       const btn = Object.assign(document.createElement("button"), { className: "preview-btn", textContent: "Preview" });
-      btn.onclick = () => FX.celebrate(val(item.id), plate, 390, { chipColors: FX.chipColors() });
+      btn.onclick = () => { FX.celebrate(val(item.id), plate, 390, { chipColors: FX.chipColors() }); sound?.play(`celebrate-${val(item.id)}`); };
       stage.append(plate, btn);
       box.append(stage);
     } else if (item.type === "bundle") {
@@ -131,6 +131,7 @@ export function createShop({ api, toast, cardEl, FX, onEquip }) {
     btn.disabled = true;
     try {
       state = await api("/api/shop/buy", { method: "POST", body: JSON.stringify({ itemId: item.id }) });
+      sound?.play("unlock");
       toast(`${item.name} unlocked${state.unlimited ? "" : state.mode === "test" ? " (test purchase, no payment taken)" : ""}`);
       if (item.type !== "bundle") await equip(item, true);
       else render();

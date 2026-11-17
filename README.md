@@ -13,6 +13,7 @@ Multiplayer Texas Hold'em that runs entirely on Cloudflare. Free-play (play chip
 | `src/table.ts` | Durable Object (1 per table) | The authority: shuffles, deals, turns, timers, bots, chip movements |
 | `src/ledger.ts` + `migrations/` | D1 | Double-entry play-chip ledger; every transfer idempotent, balances can't go negative |
 | hand histories | R2 | Every finished hand, with the deck and salts, for audits and disputes |
+| `audio/` + `public/sound.js` | R2 | 19 sound effects and 3 music loops, served by the Worker at `/audio/v1/...` (cached for good, byte ranges supported) |
 | `src/holdem.ts`, `src/cards.ts` | — | Rules engine, CSPRNG shuffle, hand evaluator, per-card deck commitments |
 | `src/stakes.ts` | — | Stake tiers and disclosed house fees (for a future licensed real-money mode) |
 | `src/shop.ts`, `src/catalog.ts` + `migrations/0002_shop.sql` | D1 | Cosmetics shop: catalogue, ownership, equipped items, purchases. `PAYMENTS_MODE=test` simulates checkout; a payment provider's confirmed-payment webhook would call `grantPurchase()` |
@@ -20,6 +21,11 @@ Multiplayer Texas Hold'em that runs entirely on Cloudflare. Free-play (play chip
 
 Cosmetics: decks, rooms, chip sets and win celebrations. Other players see your card backs and your win
 celebration; rooms and chip sets are how *you* see the table. Sign-ups are rate-limited to 5 per minute per IP.
+
+Sound: effects play through Web Audio, in time with the animations; music streams and crossfades at its loop point,
+one track per room style. Nothing plays before the player interacts, music is off until they turn it on, and both have
+their own switch and volume in the header's speaker menu. The audio was generated with ElevenLabs (sound effects and
+Eleven Music, paid plan with commercial use) and approved sound by sound.
 
 Fairness: the deck is committed (per-card SHA-256) before dealing and each player gets a proof for the cards
 they saw after the hand; folded hands stay private. The house never plays and never touches the cards.
@@ -29,6 +35,7 @@ they saw after the hand; folded hands stay private. The house never plays and ne
 ```bash
 npm install
 npx wrangler d1 migrations apply DB --local
+node tools/upload-audio.mjs --local
 npx wrangler dev --var BOT_DELAY_MS:150 --var NEXT_HAND_MS:1200 --var TURN_SECONDS:6 --var AUDIT:1
 ```
 
@@ -43,6 +50,7 @@ node tests/unlimited.mjs           # demo mode: unlimited chips, auto re-buy on 
 node tests/leave-midhand.mjs       # leaving mid-hand: folded and released at once, pot chips kept, ledger at 0
 node tests/hand-pace.mjs           # next hand deals after the normal pause, not a leftover turn timer (TURN_SECONDS:20)
 node tests/between-hands.mjs       # countdown between hands, Top up, Continue (all ready = deal now)
+node tests/sound.cjs               # effects fire with the game, music follows the room, settings switch and persist
 npm run test:cards                 # no part of any card touches another (needs the dev server)
 node tests/chip-layout.cjs         # chips never cover cards, labels or nameplates (needs the dev server)
 ```
@@ -51,6 +59,7 @@ node tests/chip-layout.cjs         # chips never cover cards, labels or nameplat
 
 ```bash
 npx wrangler d1 migrations apply DB --remote
+node tools/upload-audio.mjs --remote   # only when the audio changes; bump the version in it and in public/sound.js
 npx wrangler deploy
 ```
 

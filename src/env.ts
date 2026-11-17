@@ -3,7 +3,7 @@ import type { Table } from "./table.ts";
 
 export interface Env {
   DB: D1Database;
-  HANDS: R2Bucket;
+  HANDS: R2Bucket; // hand histories (hands/...) and the game audio (audio/<version>/...)
   TABLE: DurableObjectNamespace<Table>;
   LOBBY: DurableObjectNamespace<Lobby>;
   LOGIN_LIMIT?: RateLimit; // sign-ups per IP per minute

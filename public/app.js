@@ -2,6 +2,7 @@
 import * as FX from "./fx.js";
 import { createShop } from "./shop.js";
 import { verifyDeal } from "./fair.js";
+import * as Sound from "./sound.js";
 const $ = (id) => document.getElementById(id);
 const SUIT = { c: "♣", d: "♦", h: "♥", s: "♠" };
 const RANK = { T: "10" };
@@ -31,6 +32,7 @@ const ROOMS = ["classic", "midnight", "vegas", "riviera", "speakeasy", "penthous
 function setRoom(name) {
   if (!ROOMS.includes(name)) name = "classic";
   document.documentElement.dataset.room = name;
+  Sound.setRoom(name); // each room style has its own music
   try { localStorage.setItem("room", name); } catch {}
 }
 app.setRoom = setRoom;
@@ -57,6 +59,47 @@ app.setCelebration = setCelebration;
 app.FX = FX;
 setChips(new URLSearchParams(location.search).get("chips") || saved("chips") || "casino");
 setCelebration(new URLSearchParams(location.search).get("celebration") || saved("celebration") || "glow");
+
+// Sound: browsers allow audio only after the player interacts, so the engine starts on the first press
+for (const ev of ["pointerdown", "keydown"]) document.addEventListener(ev, () => Sound.unlock(), { capture: true });
+document.addEventListener("click", (e) => { if (e.target.closest?.("button:not(:disabled)")) Sound.play("ui-click", { volume: 0.7 }); }, { capture: true });
+
+// Sound panel: effects and music, each with its own switch and volume; remembered on this device
+function renderSoundPanel() {
+  const st = Sound.getSettings();
+  $("snd-effects").checked = st.effects;
+  $("snd-music").checked = st.music;
+  $("snd-effects-vol").value = st.effectsVolume;
+  $("snd-music-vol").value = st.musicVolume;
+  $("snd-effects-vol").disabled = !st.effects;
+  $("snd-music-vol").disabled = !st.music;
+  const track = Sound.currentTrack();
+  $("snd-now").textContent = track ? `Now playing: ${track}` : "Music is off. Each room style has its own track.";
+  $("sound-btn").querySelector("use").setAttribute("href", st.effects || st.music ? "#i-sound" : "#i-sound-off");
+}
+$("sound-btn").addEventListener("click", () => {
+  const open = $("sound-panel").hidden;
+  $("sound-panel").hidden = !open;
+  $("sound-btn").setAttribute("aria-expanded", String(open));
+  renderSoundPanel();
+});
+document.addEventListener("pointerdown", (e) => {
+  if (!$("sound-panel").hidden && !e.target.closest("#sound-panel, #sound-btn")) { $("sound-panel").hidden = true; $("sound-btn").setAttribute("aria-expanded", "false"); }
+});
+$("snd-effects").addEventListener("change", (e) => { Sound.set({ effects: e.target.checked }); renderSoundPanel(); });
+$("snd-music").addEventListener("change", (e) => { Sound.set({ music: e.target.checked }); renderSoundPanel(); });
+$("snd-effects-vol").addEventListener("input", (e) => Sound.set({ effectsVolume: +e.target.value }));
+$("snd-music-vol").addEventListener("input", (e) => Sound.set({ musicVolume: +e.target.value }));
+renderSoundPanel();
+
+/** Lines added to the table log since the last state (the server sends a sliding window of it). */
+function newLogLines(oldLog = [], newLog = []) {
+  for (let k = 0; k <= oldLog.length; k++) {
+    const tail = oldLog.slice(k);
+    if (tail.every((line, i) => newLog[i] === line)) return newLog.slice(tail.length);
+  }
+  return newLog;
+}
 
 // ---------------------------------------------------------------- screens
 function show(screen) {
@@ -88,7 +131,8 @@ async function api(path, opts = {}) {
 async function refreshMe() {
   app.user = await api("/api/me");
   // Demo servers keep chips topped up, so show that instead of a number that never goes down
-  $("wallet-balance").textContent = app.user.unlimited ? "Unlimited" : app.user.balance.toLocaleString();
+  if (app.user.unlimited) $("wallet-balance").innerHTML = `<span class="wl-full">Unlimited</span><span class="wl-short" aria-hidden="true">∞</span>`;
+  else $("wallet-balance").textContent = app.user.balance.toLocaleString();
   $("lobby-name").textContent = app.user.name;
   $("daily").hidden = app.user.unlimited || app.user.balance >= 500;
 }
@@ -142,7 +186,7 @@ function connect(tableId) {
     const msg = JSON.parse(ev.data);
     if (msg.type === "state") onState(msg);
     else if (msg.type === "error") toast(msg.message);
-    else if (msg.type === "toppedup") { toast(`Topped up with ${msg.amount.toLocaleString()} chips`); refreshMe().catch(() => {}); }
+    else if (msg.type === "toppedup") { Sound.play("chip-stack"); toast(`Topped up with ${msg.amount.toLocaleString()} chips`); refreshMe().catch(() => {}); }
     else if (msg.type === "stood") {
       // Back to the lobby straight away; don't wait for the socket's closing handshake
       toast(msg.amount > 0 ? `You left the table with ${msg.amount.toLocaleString()} chips` : app.user?.unlimited ? "You left the table" : "You're out of chips. Claim your daily chips to play again.");
@@ -232,6 +276,12 @@ function onState(s) {
   // Your buy-in just moved from your balance to the table: refresh the header balance
   if (!app.demo && (old?.you?.seat ?? -1) < 0 && s.you.seat >= 0) refreshMe().catch(() => {});
   if (s.hand && !s.hand.result) app.commits[s.hand.no] ??= s.hand.commit;
+  if (!old?.legal && s.legal) Sound.play("your-turn");
+  if (old?.hand && s.hand && old.hand.no === s.hand.no)
+    for (const line of newLogLines(old.log, s.log)) {
+      if (/ checks$/.test(line)) Sound.play("check");
+      else if (/ (tops up|re-buys) /.test(line) && !line.startsWith(app.user?.name + " ")) Sound.play("chip-stack", { volume: 0.6 });
+    }
   if (s.hand?.reveal) verifyHand(s);
   const before = capture();
   render();
@@ -390,15 +440,16 @@ function animateDiff(old, s, before, flights) {
         if (c) targets.push({ el: c });
       }
     FX.deal(targets, boardRect, back);
+    targets.forEach((_, i) => Sound.play("card-deal", { delay: i * 150 }));
     dealTime = targets.length * 150 + 450;
   } else {
     s.seats.forEach((st, i) => {
       const os = old.seats[i];
       if (!st || !os) return;
-      if (!os.folded && st.folded && before.holes[i]?.length) FX.muck(before.holes[i], boardRect, seatBack(i));
+      if (!os.folded && st.folded && before.holes[i]?.length) { FX.muck(before.holes[i], boardRect, seatBack(i)); Sound.play("fold"); }
       const els = seatEl(i)?.querySelectorAll(".hole .card") ?? [];
       st.hole.forEach((c, k) => {
-        if (c !== "??" && os.hole[k] === "??" && els[k]) FX.flipIn(els[k], back, 400 + k * 180);
+        if (c !== "??" && os.hole[k] === "??" && els[k]) { FX.flipIn(els[k], back, 400 + k * 180); Sound.play("card-flip", { delay: 400 + k * 180, volume: 0.8 }); }
       });
     });
     if (oh.pot !== nh.pot) FX.tick($("pot"), oh.pot, nh.pot);
@@ -406,6 +457,8 @@ function animateDiff(old, s, before, flights) {
 
   // Chips: each one flies on its own and lands on its stack, one after another
   const perSource = {};
+  const heard = new Set(); // one chip sound per seat's bet, per sweep and per payout, not one per chip
+  const hear = (key, name, delay) => { if (!heard.has(key)) { heard.add(key); Sound.play(name, { delay }); } };
   let sweepTime = 0;
   const showdownPause = nh.result && !oh?.result ? (nh.result.endedBy === "showdown" ? 1100 : 400) : 0;
   for (const f of flights) {
@@ -417,11 +470,14 @@ function animateDiff(old, s, before, flights) {
       const delay = dealTime + k * 110;
       if (f.to === "pot") sweepTime = Math.max(sweepTime, delay + 700);
       FX.landChip(f.chip.d, size, from, target, delay);
+      if (f.to === "pot") hear("pot", "chip-stack", delay);
+      else hear(`bet${f.seat}`, s.seats[f.seat]?.allIn && !old?.seats[f.seat]?.allIn ? "all-in" : "chip-bet", delay);
     } else if (f.to === "win" || f.to === "house") {
       const from = before.chips[f.chip.id];
       const dest = f.to === "win" ? plateRect(f.winner) : new DOMRect(innerWidth / 2, -60, 1, 1);
       const delay = showdownPause + k * 45;
       FX.landChip(f.chip.d, size, from, null, delay, { fadeOut: true, to: dest });
+      if (f.to === "win") hear("win", "pot-win", delay);
       if (f.to === "house") continue;
     }
   }
@@ -429,7 +485,11 @@ function animateDiff(old, s, before, flights) {
   // New board cards flip once any chips have been swept into the pot
   if (!newHand)
     nh.board.forEach((c, idx) => {
-      if (idx >= oh.board.length) FX.flipIn($("board").children[idx], back, sweepTime + (idx - oh.board.length) * 220);
+      if (idx >= oh.board.length) {
+        const delay = sweepTime + (idx - oh.board.length) * 220;
+        FX.flipIn($("board").children[idx], back, delay);
+        Sound.play("card-flip", { delay });
+      }
     });
 
   // Hand over: the celebration starts as the pot arrives
@@ -439,7 +499,11 @@ function animateDiff(old, s, before, flights) {
       if (amt <= 0) return;
       const plate = () => seatEl(i)?.querySelector(".plate");
       const style = i === you ? app.celebration : (s.seats[i]?.cosmetics?.celebration ?? "glow");
-      setTimeout(() => plate() && FX.celebrate(style, plate(), amt, { chipColors: FX.chipColors() }), showdownPause + 700);
+      setTimeout(() => {
+        if (!plate()) return;
+        FX.celebrate(style, plate(), amt, { chipColors: FX.chipColors() });
+        Sound.play(`celebrate-${style}`, { volume: i === you ? 1 : 0.55 });
+      }, showdownPause + 700);
     });
   }
 }
@@ -540,12 +604,25 @@ function renderActions(s) {
     slider.style.setProperty("--fill", `${((v - L.minRaiseTo) / Math.max(1, L.maxRaiseTo - L.minRaiseTo)) * 100}%`);
   }
 
+  turnTicks();
   // turn timer
   const fill = $("timer-fill");
   if (h?.deadline && myTurn) {
     const left = Math.max(0, h.deadline - Date.now());
     fill.style.width = `${Math.min(100, (left / (s.turnSeconds * 1000)) * 100)}%`;
   } else fill.style.width = "0";
+}
+
+// Quiet clock ticks in the last 5 seconds of your turn
+let tickTimer = null, lastTick = null;
+function turnTicks() {
+  if (!(app.state?.legal && app.state.hand?.deadline)) { clearInterval(tickTimer); tickTimer = null; lastTick = null; return; }
+  tickTimer ??= setInterval(() => {
+    const d = app.state?.legal && app.state.hand?.deadline;
+    if (!d) return turnTicks();
+    const secs = Math.ceil((d - Date.now()) / 1000);
+    if (secs >= 1 && secs <= 5 && secs !== lastTick) { lastTick = secs; Sound.play("timer-tick"); }
+  }, 200);
 }
 
 // ---------------------------------------------------------------- between hands
@@ -578,6 +655,8 @@ function tickCountdown() {
   $("count-num").textContent = secs;
   $("between-title").textContent = left > 0 ? `Next hand in ${secs}s` : "Dealing…";
   $("ring").style.strokeDashoffset = String(119.4 * (1 - Math.min(1, left / Math.max(1, app.nextTotal))));
+  const no = app.state?.hand?.no;
+  if (left > 0 && left < 1600 && app.shuffledAfter !== no) { app.shuffledAfter = no; Sound.play("shuffle"); } // the dealer shuffles before the deal
 }
 $("btn-continue").addEventListener("click", () => send({ type: "ready" }));
 $("btn-topup").addEventListener("click", () => send({ type: "topup" }));
@@ -667,7 +746,7 @@ setInterval(() => {
 }, 200);
 
 // ---------------------------------------------------------------- cosmetics shop
-const shop = createShop({ api, toast, cardEl, FX, onEquip: applyEquipped });
+const shop = createShop({ api, toast, cardEl, FX, sound: Sound, onEquip: applyEquipped });
 app.shop = shop;
 $("shop-btn").addEventListener("click", () => shop.open());
 $("lobby-shop").addEventListener("click", () => shop.open());

@@ -71,6 +71,8 @@
     <symbol id="i-exit" viewBox="0 0 24 24"><path d="M14 4.5h4.5a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H14M10.5 8 6.5 12l4 4M6.8 12H15.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></symbol>
     <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5.5 8h13l-1 12h-11z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 10.5V7a3 3 0 0 1 6 0v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-sound" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
+    <symbol id="i-sound-off" viewBox="0 0 24 24"><path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="m16 9.5 5 5M21 9.5l-5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></symbol>
     <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.2 4.2L19 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-chip" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="12" r="4.6" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M12 3v3.2M12 17.8V21M3 12h3.2M17.8 12H21M5.6 5.6l2.3 2.3M16.1 16.1l2.3 2.3M18.4 5.6l-2.3 2.3M7.9 16.1l-2.3 2.3" stroke="currentColor" stroke-width="1.6"/></symbol>
   </svg>
@@ -85,6 +87,7 @@
       <button id="fair-btn" class="fair-chip" data-state="idle" hidden title="Provably fair shuffle">
         <svg class="ico"><use href="#i-shield" /></svg><span id="fair-chip-text">Fair play</span>
       </button>
+      <button id="sound-btn" class="icon-btn" title="Sound and music" aria-label="Sound and music" aria-expanded="false" aria-controls="sound-panel" data-testid="sound"><svg class="ico"><use href="#i-sound" /></svg></button>
       <button id="history-btn" class="icon-btn" hidden title="Hand history" aria-label="Hand history"><svg class="ico"><use href="#i-list" /></svg></button>
       <button id="shop-btn" class="quiet-btn" data-testid="shop" hidden><svg class="ico"><use href="#i-bag" /></svg><span>Shop</span></button>
       <div class="wallet" data-testid="wallet" hidden>
@@ -93,6 +96,17 @@
       <button id="leave-btn" class="quiet-btn" data-testid="leave" hidden><svg class="ico"><use href="#i-exit" /></svg><span>Leave</span></button>
     </nav>
   </header>
+  <div class="sound-panel" id="sound-panel" role="dialog" aria-label="Sound and music" hidden>
+    <div class="sp-row">
+      <label class="sp-switch"><input type="checkbox" id="snd-effects" data-testid="snd-effects" /><span>Sound effects</span></label>
+      <input type="range" id="snd-effects-vol" min="0" max="1" step="0.05" aria-label="Sound effects volume" />
+    </div>
+    <div class="sp-row">
+      <label class="sp-switch"><input type="checkbox" id="snd-music" data-testid="snd-music" /><span>Music</span></label>
+      <input type="range" id="snd-music-vol" min="0" max="1" step="0.05" aria-label="Music volume" />
+    </div>
+    <p class="sp-now" id="snd-now"></p>
+  </div>
 
   <!-- Login -->
   <section id="screen-login" class="screen hero" hidden>

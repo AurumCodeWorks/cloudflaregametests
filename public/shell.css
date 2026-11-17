@@ -427,3 +427,28 @@ input { font: inherit; color: var(--ink); }
   .shop-inner { padding: 20px 14px 50px; }
   .shop-grid { grid-template-columns: 1fr; }
 }
+
+/* Sound and music panel, under the header's speaker button */
+.sound-panel {
+  position: fixed; z-index: 72; top: calc(var(--topbar) + 8px); right: max(16px, env(safe-area-inset-right, 0px)); width: min(320px, calc(100vw - 32px));
+  display: grid; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--surface); border: 1px solid var(--hair-2); box-shadow: var(--shadow-lg);
+}
+.sp-row { display: grid; gap: 8px; }
+.sp-switch { display: flex; align-items: center; gap: 10px; font: 600 14px var(--ui); color: var(--ink); cursor: pointer; }
+.sp-switch input { width: 18px; height: 18px; accent-color: var(--gold); }
+.sound-panel input[type="range"] { width: 100%; accent-color: var(--gold); }
+.sound-panel input[type="range"]:disabled { opacity: .35; }
+.sp-now { margin: 0; font-size: 12.5px; color: var(--ink-2); min-height: 1em; }
+
+/* Narrow phones: the crest stands in for the wordmark, the unlimited balance shows as ∞, buttons tighten */
+.wl-short { display: none; }
+@media (max-width: 520px) {
+  .wordmark { display: none; }
+  .wl-full { display: none; }
+  .wl-short { display: inline; }
+  .topbar-right { gap: 5px; }
+  .icon-btn { width: 34px; height: 34px; }
+  .wallet, .quiet-btn, .fair-chip { height: 34px; }
+  .quiet-btn, .fair-chip { padding-left: 9px; padding-right: 9px; }
+  .wallet { padding: 0 9px; gap: 6px; }
+}
